@@ -4,326 +4,476 @@
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; width: 100%; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #333; }
 
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+    /* Navbar */
+    .navbar { background: #0b5394; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: white;
-}
+    /* Tabs */
+    .tabs { display: flex; overflow-x: auto; background: white; padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 54px; z-index: 99; white-space: nowrap; }
+    .tab { padding: 10px 20px; margin-right: 10px; background: #f0f5fb; border-radius: 8px; cursor: pointer; font-weight: bold; color: #555; transition: 0.3s; }
+    .tab.active { background: #0b5394; color: white; }
 
-.box {
-  width: 100%;
-  min-height: 100vh;
-  background: white;
-  padding: 20px 0px 50px;
-}
+    /* Container */
+    .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
+    .view { display: none; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .view.active { display: block; }
 
-@media (min-width: 640px) {
-  body {
-    background: #eef2f7;
-    padding: 24px;
-    display: flex;
-    justify-content: center;
-  }
-  .box {
-    max-width: 640px;
-    min-height: unset;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    padding: 28px 28px 40px;
-  }
-}
+    /* Typography & Forms */
+    h2 { color: #0b5394; margin-top: 0; border-bottom: 2px solid #e0eaf5; padding-bottom: 10px; }
+    .row { margin-bottom: 15px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff; }
+    input:focus, select:focus, textarea:focus { border-color: #0b5394; outline: none; box-shadow: 0 0 0 3px rgba(11,83,148,0.1); }
+    button.btn { width: 100%; background: #0b5394; color: white; border: none; padding: 15px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    button.btn:active { background: #073763; transform: scale(0.98); }
+    button.btn:disabled { background: #999; cursor: not-allowed; }
 
-h2 {
-  text-align: center;
-  color: #0b5394;
-  margin: 0 0 24px 0;
-  font-size: 26px;
-  font-weight: 800;
-  padding: 0 10px;
-}
+    /* Tables */
+    .table-responsive { overflow-x: auto; margin-top: 15px; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #f0f5fb; color: #0b5394; }
 
-.section-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0b5394;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 22px 0 10px;
-  padding: 0 10px 7px;
-  border-bottom: 2px solid #e0eaf5;
-}
+    /* Message Box */
+    .msg { margin-top: 15px; padding: 10px; border-radius: 8px; display: none; font-weight: bold; text-align: center; }
+    .msg.success { background: #d4edda; color: #155724; display: block; }
+    .msg.error { background: #f8d7da; color: #721c24; display: block; }
 
-.row {
-  margin-bottom: 14px;
-  padding: 0 10px;
-}
+    /* Report Cards */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .card-title { font-size: 18px; font-weight: bold; color: #0b5394; margin-bottom: 10px; }
+    .card-stat { font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .card-stat span { font-weight: bold; }
 
-label {
-  font-weight: 700;
-  display: block;
-  margin-bottom: 7px;
-  font-size: 15px;
-  color: #222;
-}
+    /* Accordion / Expandable */
+    .details-row { display: none; background: #fafafa; }
+    .details-row.open { display: table-row; }
+    .expand-btn { cursor: pointer; color: #0b5394; text-decoration: underline; background: none; border: none; font-size: 14px; padding: 0; }
 
-input:not([readonly]),
-textarea {
-  width: 100%;
-  padding: 16px 12px;
-  border: 2px solid #d0d8e4;
-  border-radius: 10px;
-  font-size: 17px;
-  outline: none;
-  background: #fff;
-  color: #111;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-input:not([readonly]):focus,
-textarea:focus {
-  border-color: #0b5394;
-  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
-}
-
-input[readonly] {
-  width: 100%;
-  padding: 13px 12px;
-  border: 1.5px solid #e0e6ef;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #f0f5fb;
-  color: #555;
-  outline: none;
-}
-
-textarea {
-  min-height: 100px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.btn-wrap {
-  padding: 0 10px;
-}
-
-button {
-  width: 100%;
-  background: #0b5394;
-  color: white;
-  border: none;
-  padding: 18px;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: 800;
-  cursor: pointer;
-  margin-top: 12px;
-  -webkit-appearance: none;
-  transition: background 0.2s, transform 0.1s;
-}
-
-button:active {
-  transform: scale(0.97);
-  background: #073763;
-}
-
-button:disabled {
-  background: #7fa8cc;
-}
-
-.msg-box {
-  margin: 16px 10px 0;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-  padding: 14px;
-  border-radius: 12px;
-  display: none;
-}
-
-.msg-success {
-  color: #1a7a1a;
-  background: #e6f9e6;
-  border: 1.5px solid #b2e0b2;
-}
-
-.msg-error {
-  color: #b71c1c;
-  background: #fdecea;
-  border: 1.5px solid #f5c6c6;
-}
-
+    /* Loading Overlay */
+    #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 999; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #0b5394; flex-direction: column; }
+    .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #0b5394; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-
 <body>
-<div class="box">
 
-  <h2>🚚 Transit Entry Form</h2>
+<div id="loader">
+  <div class="spinner"></div>
+  <div>Loading Data...</div>
+</div>
 
-  <form id="myForm" autocomplete="off">
+<div class="navbar">Yashika Petrochem</div>
 
-    <div class="section-title">From Party</div>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="switchTab('purchase')">🛒 Purchase</div>
+  <div class="tab" onclick="switchTab('transfer')">🚚 Transfer</div>
+  <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
+  <div class="tab" onclick="switchTab('dispatch')">📦 Dispatch</div>
+  <div class="tab" onclick="switchTab('opening')">📦 Opening Stock</div>
+</div>
 
-    <div class="row">
-      <label>Party Name / फ्रॉम पार्टी</label>
-      <input list="fromPartyList" id="fromParty" placeholder="Select or type party name..." required>
-      <datalist id="fromPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="fromPartyCode" readonly placeholder="Auto-filled">
-    </div>
+<div class="container">
 
-    <div class="section-title">To Party</div>
+  <!-- DASHBOARD / REPORTS -->
+  <div id="dashboard" class="view active">
+    <h2>Reports Dashboard <button onclick="loadReports()" style="float:right; font-size:14px; padding:5px 10px;">Refresh</button></h2>
 
-    <div class="row">
-      <label>Party Name / टू पार्टी</label>
-      <input list="toPartyList" id="toParty" placeholder="Select or type party name..." required>
-      <datalist id="toPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="toPartyCode" readonly placeholder="Auto-filled">
-    </div>
+    <h3 style="color:#333; border-bottom:1px solid #ccc;">C. Total Brand Stock (Click details)</h3>
+    <div class="card-grid" id="brandReportCards"></div>
 
-    <div class="section-title">Brand</div>
-
-    <div class="row">
-      <label>Brand Name / ब्रांड</label>
-      <input list="brandList" id="brandName" placeholder="Select or type brand..." required>
-      <datalist id="brandList"></datalist>
-    </div>
-    <div class="row">
-      <label>Brand Code</label>
-      <input type="text" id="brandCode" readonly placeholder="Auto-filled">
+    <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">B. State-Wise Stock</h3>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>State</th><th>Item</th><th>Brand</th><th>Physical Qty</th><th>Saleable Qty</th></tr></thead>
+        <tbody id="stateReportTable"></tbody>
+      </table>
     </div>
 
-    <div class="section-title">Details</div>
-
-    <div class="row">
-      <label>Quantity / मात्रा</label>
-      <input type="number" id="qty" placeholder="Enter quantity" inputmode="numeric" required>
+    <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">A. Detailed Physical vs Saleable</h3>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Location</th><th>Type</th><th>Item</th><th>Brand</th><th>Physical</th><th>Pending Sale</th><th>Saleable</th></tr></thead>
+        <tbody id="detailedReportTable"></tbody>
+      </table>
     </div>
-    <div class="row">
-      <label>Vehicle No / गाड़ी नंबर</label>
-      <input type="text" id="vehicleNo" placeholder="E.G. DL01AB1234" style="text-transform:uppercase">
-    </div>
-    <div class="row">
-      <label>Remarks / टिप्पणी</label>
-      <textarea id="remarks" placeholder="Optional notes..."></textarea>
-    </div>
+  </div>
 
-    <div class="btn-wrap">
-      <button type="submit" id="submitBtn">Submit / जमा करें</button>
+  <!-- PURCHASE ENTRY -->
+  <div id="purchase" class="view">
+    <h2>🛒 Purchase Entry (Local/Import)</h2>
+    <form id="formPurchase" onsubmit="submitForm(event, 'Purchase')">
+      <div class="row">
+        <label>Item</label>
+        <select id="p_item" required onchange="populateBrands('p_item', 'p_brand')"><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Brand</label>
+        <select id="p_brand" required><option value="">Select Brand</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="p_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Destination Type</label>
+        <select id="p_destType" required onchange="populateDest('p_destType', 'p_destLoc')">
+          <option value="">Select</option>
+          <option value="Party">Purchased Party (Direct)</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Destination Location</label>
+        <select id="p_destLoc" required><option value="">Select Location</option></select>
+      </div>
+      <div class="row">
+        <label>Remarks</label>
+        <input type="text" id="p_remarks">
+      </div>
+      <button type="submit" class="btn">Save Purchase</button>
+      <div id="msg_Purchase" class="msg"></div>
+    </form>
+  </div>
+
+  <!-- TRANSFER -->
+  <div id="transfer" class="view">
+    <h2>🚚 Stock Transfer</h2>
+    <form id="formTransfer" onsubmit="submitForm(event, 'Transfer')">
+      <div class="row">
+        <label>Item</label>
+        <select id="t_item" required onchange="populateBrands('t_item', 't_brand')"><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Brand</label>
+        <select id="t_brand" required><option value="">Select Brand</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="t_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Source Type</label>
+        <select id="t_sourceType" required onchange="populateDest('t_sourceType', 't_sourceLoc')">
+          <option value="">Select</option>
+          <option value="Party">Party</option>
+          <option value="Transit">Transit</option>
+          <option value="Godown">Godown</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Source Location</label>
+        <select id="t_sourceLoc" required><option value="">Select Source</option></select>
+      </div>
+      <div class="row">
+        <label>Destination Type</label>
+        <select id="t_destType" required onchange="populateDest('t_destType', 't_destLoc')">
+          <option value="">Select</option>
+          <option value="Transit">Transit</option>
+          <option value="Godown">Godown</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Destination Location</label>
+        <select id="t_destLoc" required><option value="">Select Destination</option></select>
+      </div>
+      <button type="submit" class="btn">Transfer Stock</button>
+      <div id="msg_Transfer" class="msg"></div>
+    </form>
+  </div>
+
+  <!-- SALE ORDER -->
+  <div id="sale" class="view">
+    <h2>🧾 Sale Order (Pending Dispatch)</h2>
+    <form id="formSaleOrder" onsubmit="submitForm(event, 'SaleOrder')">
+      <div class="row">
+        <label>Item</label>
+        <select id="s_item" required onchange="populateBrands('s_item', 's_brand')"><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Brand</label>
+        <select id="s_brand" required><option value="">Select Brand</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="s_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Fulfill From (Source Type)</label>
+        <select id="s_sourceType" required onchange="populateDest('s_sourceType', 's_sourceLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Purchased Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Fulfill Location</label>
+        <select id="s_sourceLoc" required><option value="">Select Source</option></select>
+      </div>
+      <div class="row">
+        <label>Buyer / Customer</label>
+        <select id="s_destLoc" required><option value="">Select Buyer</option></select>
+      </div>
+      <button type="submit" class="btn">Create Sale Order</button>
+      <div id="msg_SaleOrder" class="msg"></div>
+    </form>
+  </div>
+
+  <!-- DISPATCH -->
+  <div id="dispatch" class="view">
+    <h2>📦 Dispatch Pending Sales</h2>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Date</th><th>Item</th><th>Brand</th><th>Qty</th><th>Source</th><th>Buyer</th><th>Action</th></tr></thead>
+        <tbody id="dispatchTable"></tbody>
+      </table>
     </div>
+    <div id="msg_Dispatch" class="msg"></div>
+  </div>
 
-  </form>
-
-  <div class="msg-box" id="msg"></div>
+  <!-- OPENING STOCK -->
+  <div id="opening" class="view">
+    <h2>📦 Opening Stock Entry</h2>
+    <form id="formOpening" onsubmit="submitForm(event, 'Opening')">
+      <div class="row">
+        <label>Item</label>
+        <select id="o_item" required onchange="populateBrands('o_item', 'o_brand')"><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Brand</label>
+        <select id="o_brand" required><option value="">Select Brand</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="o_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Location Type</label>
+        <select id="o_destType" required onchange="populateDest('o_destType', 'o_destLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Location</label>
+        <select id="o_destLoc" required><option value="">Select Location</option></select>
+      </div>
+      <button type="submit" class="btn">Save Opening Stock</button>
+      <div id="msg_Opening" class="msg"></div>
+    </form>
+  </div>
 
 </div>
 
 <script>
+let master = { items: [], brands: [], godowns: [], parties: [] };
 
-let partyData = [];
-let brandData = [];
-
-google.script.run.withSuccessHandler(function(data) {
-  partyData = data.parties;
-  brandData = data.brands;
-
-  const fromList  = document.getElementById("fromPartyList");
-  const toList    = document.getElementById("toPartyList");
-  const brandList = document.getElementById("brandList");
-
-  partyData.forEach(p => {
-    let o1 = document.createElement("option"); o1.value = p.name; fromList.appendChild(o1);
-    let o2 = document.createElement("option"); o2.value = p.name; toList.appendChild(o2);
-  });
-  brandData.forEach(b => {
-    let o = document.createElement("option"); o.value = b.name; brandList.appendChild(o);
-  });
-
-}).getMasterData();
-
-
-function matchParty(val) {
-  let f = partyData.find(p => p.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
+function showMsg(id, isSuccess, text) {
+  const el = document.getElementById(id);
+  el.className = 'msg ' + (isSuccess ? 'success' : 'error');
+  el.innerText = text;
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
-function matchBrand(val) {
-  let f = brandData.find(b => b.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
+function switchTab(tabId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(tabId === 'dashboard' || tabId === 'dispatch') loadReports();
 }
 
-document.getElementById("fromParty").addEventListener("input", function() {
-  document.getElementById("fromPartyCode").value = matchParty(this.value);
-});
+function init() {
+  google.script.run.withSuccessHandler(res => {
+    if(res.error) {
+      alert("Error loading master data. Please setup Google Sheets tabs (Items, Brands, Godowns, Parties) properly.");
+      document.getElementById('loader').style.display = 'none';
+      return;
+    }
+    master = res;
+    populateItems();
+    populateBuyers();
+    loadReports();
+  }).getMasterData();
+}
 
-document.getElementById("toParty").addEventListener("input", function() {
-  document.getElementById("toPartyCode").value = matchParty(this.value);
-});
+function populateItems() {
+  const opts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.ItemName}">${i.ItemName}</option>`).join('');
+  document.getElementById('p_item').innerHTML = opts;
+  document.getElementById('t_item').innerHTML = opts;
+  document.getElementById('s_item').innerHTML = opts;
+  document.getElementById('o_item').innerHTML = opts;
+}
 
-document.getElementById("brandName").addEventListener("input", function() {
-  document.getElementById("brandCode").value = matchBrand(this.value);
-});
+function populateBrands(itemSelectId, brandSelectId) {
+  // If items sheet specifies brand, filter. Otherwise show all brands.
+  const opts = '<option value="">Select Brand</option>' + master.brands.map(b => `<option value="${b.BrandName}">${b.BrandName}</option>`).join('');
+  document.getElementById(brandSelectId).innerHTML = opts;
+}
 
-document.getElementById("vehicleNo").addEventListener("input", function() {
-  let pos = this.selectionStart;
-  this.value = this.value.toUpperCase();
-  this.setSelectionRange(pos, pos);
-});
+function populateDest(typeSelectId, locSelectId) {
+  const type = document.getElementById(typeSelectId).value;
+  let locs = [];
+  if (type === 'Godown') locs = master.godowns.map(g => g.GodownName);
+  else if (type === 'Party') locs = master.parties.map(p => p.PartyName);
+  else if (type === 'Transit') locs = ["General Transit"];
 
-document.getElementById("myForm").addEventListener("submit", function(e) {
+  document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+function populateBuyers() {
+  document.getElementById('s_destLoc').innerHTML = '<option value="">Select Buyer</option>' + master.parties.map(p => `<option value="${p.PartyName}">${p.PartyName}</option>`).join('');
+}
+
+function submitForm(e, type) {
   e.preventDefault();
-
-  const btn    = document.getElementById("submitBtn");
-  const msgDiv = document.getElementById("msg");
-
+  const btn = e.target.querySelector('button');
   btn.disabled = true;
-  btn.textContent = "Submitting...";
-  msgDiv.style.display = "none";
+  btn.innerText = "Processing...";
+
+  let prefix = '';
+  if(type==='Purchase') prefix='p_';
+  if(type==='Transfer') prefix='t_';
+  if(type==='SaleOrder') prefix='s_';
+  if(type==='Opening') prefix='o_';
 
   let obj = {
-    fromParty    : document.getElementById("fromParty").value,
-    fromPartyCode: document.getElementById("fromPartyCode").value,
-    toParty      : document.getElementById("toParty").value,
-    toPartyCode  : document.getElementById("toPartyCode").value,
-    qty          : document.getElementById("qty").value,
-    brandName    : document.getElementById("brandName").value,
-    brandCode    : document.getElementById("brandCode").value,
-    vehicleNo    : document.getElementById("vehicleNo").value,
-    remarks      : document.getElementById("remarks").value
+    type: type,
+    itemName: document.getElementById(prefix+'item').value,
+    brand: document.getElementById(prefix+'brand').value,
+    qty: document.getElementById(prefix+'qty').value,
   };
 
-  google.script.run
-    .withSuccessHandler(function(res) {
-      const ok = res === "Success";
-      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
-      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
-      msgDiv.style.display = "block";
-      if (ok) {
-        document.getElementById("myForm").reset();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-      btn.disabled = false;
-      btn.textContent = "Submit / जमा करें";
-    })
-    .saveData(obj);
-});
+  if(type==='Purchase') {
+    obj.destType = document.getElementById('p_destType').value;
+    obj.destLocation = document.getElementById('p_destLoc').value;
+    obj.remarks = document.getElementById('p_remarks').value;
+  } else if(type==='Transfer') {
+    obj.sourceType = document.getElementById('t_sourceType').value;
+    obj.sourceLocation = document.getElementById('t_sourceLoc').value;
+    obj.destType = document.getElementById('t_destType').value;
+    obj.destLocation = document.getElementById('t_destLoc').value;
+  } else if(type==='SaleOrder') {
+    obj.sourceType = document.getElementById('s_sourceType').value;
+    obj.sourceLocation = document.getElementById('s_sourceLoc').value;
+    obj.destType = "Buyer";
+    obj.destLocation = document.getElementById('s_destLoc').value;
+    obj.status = "PendingSale";
+  } else if(type==='Opening') {
+    obj.destType = document.getElementById('o_destType').value;
+    obj.destLocation = document.getElementById('o_destLoc').value;
+  }
 
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Submit";
+    if(res === "Success") {
+      showMsg('msg_'+type, true, "Entry saved successfully!");
+      e.target.reset();
+    } else {
+      showMsg('msg_'+type, false, res);
+    }
+  }).saveTransaction(obj);
+}
+
+function loadReports() {
+  document.getElementById('loader').style.display = 'flex';
+  google.script.run.withSuccessHandler(res => {
+    document.getElementById('loader').style.display = 'none';
+    if(res.error) {
+      console.error(res.error);
+      return;
+    }
+    renderReports(res);
+  }).getReportsData();
+}
+
+function toggleDetails(brandId) {
+  const rows = document.querySelectorAll('.det-' + brandId.replace(/\s+/g, '-'));
+  rows.forEach(r => r.classList.toggle('open'));
+}
+
+function renderReports(data) {
+  // A. Detailed
+  let dHtml = '';
+  data.detailed.forEach(d => {
+    dHtml += `<tr><td>${d.locName}</td><td>${d.locType}</td><td>${d.itemName}</td><td>${d.brand}</td>
+      <td>${d.physical}</td><td>${d.pending}</td><td style="font-weight:bold; color:#0b5394;">${d.saleable}</td></tr>`;
+  });
+  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="7">No data available</td></tr>';
+
+  // B. State-Wise
+  let sHtml = '';
+  data.stateWise.forEach(s => {
+    sHtml += `<tr><td>${s.state}</td><td>${s.item}</td><td>${s.brand}</td><td>${s.physical}</td><td>${s.saleable}</td></tr>`;
+  });
+  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="5">No data available</td></tr>';
+
+  // C. Brand-Wise Cards
+  let bHtml = '';
+  data.brandWise.forEach((b, idx) => {
+    let safeId = b.brand.replace(/\s+/g, '-');
+    bHtml += `
+      <div class="card">
+        <div class="card-title">${b.brand}</div>
+        <div class="card-stat">Total Physical: <span>${b.physical}</span></div>
+        <div class="card-stat">In Transit: <span>${b.transit}</span></div>
+        <div class="card-stat">At Party: <span>${b.party}</span></div>
+        <div class="card-stat" style="color:red;">Pending Sale: <span>${b.pending}</span></div>
+        <div class="card-stat" style="color:green; font-size:16px;">Saleable: <span>${b.saleable}</span></div>
+        <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Godown/Location Details</button>
+        <table style="margin-top:10px; width:100%; font-size:12px;">
+          ${b.details.map(det => `
+            <tr class="details-row det-${safeId}">
+              <td>${det.locName} (${det.locType})</td>
+              <td style="text-align:right;">${det.saleable}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `;
+  });
+  document.getElementById('brandReportCards').innerHTML = bHtml || '<div style="padding:15px;">No data available</div>';
+
+  // Dispatch Table
+  let dispHtml = '';
+  data.pendingSales.forEach(p => {
+    let dateStr = new Date(p.Timestamp).toLocaleDateString();
+    dispHtml += `
+      <tr>
+        <td>${dateStr}</td><td>${p.ItemName}</td><td>${p.Brand}</td><td>${p.Qty}</td>
+        <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
+        <td><button style="padding:5px 10px; font-size:12px;" onclick="doDispatch('${p.TxnID}', this)">Mark Dispatched</button></td>
+      </tr>
+    `;
+  });
+  document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
+}
+
+function doDispatch(txnId, btn) {
+  if(!confirm("Are you sure this stock has physically left?")) return;
+  btn.innerText = "Wait...";
+  btn.disabled = true;
+  google.script.run.withSuccessHandler(res => {
+    if(res === "Success") {
+      showMsg('msg_Dispatch', true, "Dispatched successfully!");
+      loadReports();
+    } else {
+      showMsg('msg_Dispatch', false, res);
+      btn.innerText = "Mark Dispatched";
+      btn.disabled = false;
+    }
+  }).dispatchSale(txnId);
+}
+
+window.onload = init;
 </script>
 </body>
 </html>
