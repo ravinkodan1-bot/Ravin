@@ -45,11 +45,21 @@ function getMasterData() {
       const sheet = ss.getSheetByName(sheetName);
       if (!sheet) return [];
       const data = sheet.getDataRange().getValues();
-      const headers = data.shift();
-      return data.map(row => {
-        let obj = {};
-        headers.forEach((h, i) => obj[h] = row[i]);
-        return obj;
+      if(data.length === 0) return [];
+      data.shift(); // remove headers
+
+      // We map directly by column index to avoid header name mismatch issues.
+      // Assuming standard layout:
+      // Items: Col 1 = Code, Col 2 = Name, Col 3 = Brand
+      // Brands: Col 1 = Code, Col 2 = Name
+      // Godowns: Col 1 = Code, Col 2 = Name, Col 3 = State
+      // Parties: Col 1 = Code, Col 2 = Name, Col 3 = Type
+      return data.filter(row => row[1] && row[1].toString().trim() !== "").map(row => {
+        return {
+           code: row[0],
+           name: row[1],
+           extra: row[2] || ""
+        };
       });
     };
 

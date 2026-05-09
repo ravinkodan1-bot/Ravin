@@ -305,7 +305,7 @@ function init() {
 }
 
 function populateItems() {
-  const opts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.ItemName}">${i.ItemName}</option>`).join('');
+  const opts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
   document.getElementById('p_item').innerHTML = opts;
   document.getElementById('t_item').innerHTML = opts;
   document.getElementById('s_item').innerHTML = opts;
@@ -314,22 +314,22 @@ function populateItems() {
 
 function populateBrands(itemSelectId, brandSelectId) {
   // If items sheet specifies brand, filter. Otherwise show all brands.
-  const opts = '<option value="">Select Brand</option>' + master.brands.map(b => `<option value="${b.BrandName}">${b.BrandName}</option>`).join('');
+  const opts = '<option value="">Select Brand</option>' + master.brands.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
   document.getElementById(brandSelectId).innerHTML = opts;
 }
 
 function populateDest(typeSelectId, locSelectId) {
   const type = document.getElementById(typeSelectId).value;
   let locs = [];
-  if (type === 'Godown') locs = master.godowns.map(g => g.GodownName);
-  else if (type === 'Party') locs = master.parties.map(p => p.PartyName);
+  if (type === 'Godown') locs = master.godowns.map(g => g.name);
+  else if (type === 'Party') locs = master.parties.map(p => p.name);
   else if (type === 'Transit') locs = ["General Transit"];
 
   document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
 }
 
 function populateBuyers() {
-  document.getElementById('s_destLoc').innerHTML = '<option value="">Select Buyer</option>' + master.parties.map(p => `<option value="${p.PartyName}">${p.PartyName}</option>`).join('');
+  document.getElementById('s_destLoc').innerHTML = '<option value="">Select Buyer</option>' + master.parties.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
 }
 
 function submitForm(e, type) {
