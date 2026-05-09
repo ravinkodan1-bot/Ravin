@@ -15,21 +15,6 @@ function getOrCreateSheet(ss, sheetName, headers) {
   return sheet;
 }
 
-function initSetup() {
-  const masterSS = SpreadsheetApp.openById(MASTER_SHEET_ID);
-  getOrCreateSheet(masterSS, "Items", ["ItemCode", "ItemName", "Brand"]);
-  getOrCreateSheet(masterSS, "Brands", ["BrandCode", "BrandName"]);
-  getOrCreateSheet(masterSS, "Godowns", ["GodownCode", "GodownName", "State"]);
-  getOrCreateSheet(masterSS, "Parties", ["PartyCode", "PartyName"]);
-
-  const transSS = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
-  getOrCreateSheet(transSS, "Transactions", [
-    "Timestamp", "TxnID", "Type", "ItemName", "Brand", "Qty",
-    "SourceType", "SourceLocation", "DestType", "DestLocation",
-    "Status", "Remarks"
-  ]);
-}
-
 function doGet() {
   return HtmlService
     .createHtmlOutputFromFile('index')
@@ -49,11 +34,7 @@ function getMasterData() {
       data.shift(); // remove headers
 
       // We map directly by column index to avoid header name mismatch issues.
-      // Assuming standard layout:
-      // Items: Col 1 = Code, Col 2 = Name, Col 3 = Brand
-      // Brands: Col 1 = Code, Col 2 = Name
-      // Godowns: Col 1 = Code, Col 2 = Name, Col 3 = State
-      // Parties: Col 1 = Code, Col 2 = Name, Col 3 = Type
+      // Col 1 = Code, Col 2 = Name, Col 3 = Extra Info
       return data.filter(row => row[1] && row[1].toString().trim() !== "").map(row => {
         return {
            code: row[0],
@@ -65,7 +46,6 @@ function getMasterData() {
 
     return {
       items: getData("Items"),
-      brands: getData("Brands"),
       godowns: getData("Godowns"),
       parties: getData("Parties")
     };
@@ -78,9 +58,9 @@ function saveTransaction(obj) {
   try {
     const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
     const sheet = getOrCreateSheet(ss, "Transactions", [
-      "Timestamp", "TxnID", "Type", "ItemName", "Brand", "Qty",
+      "Timestamp", "TxnID", "Type", "ItemName", "Qty",
       "SourceType", "SourceLocation", "DestType", "DestLocation",
-      "Status", "Remarks"
+      "Status", "Supplier", "OrderRef", "Remarks"
     ]);
 
     const txnId = "TXN" + new Date().getTime();
@@ -90,13 +70,14 @@ function saveTransaction(obj) {
       txnId,
       obj.type, // Opening, Purchase, Transfer, SaleOrder, Dispatch
       obj.itemName,
-      obj.brand,
       obj.qty,
       obj.sourceType || "", // Godown, Party, Transit
       obj.sourceLocation || "",
-      obj.destType || "",   // Godown, Transit
+      obj.destType || "",   // Godown, Transit, Buyer
       obj.destLocation || "",
       obj.status || "Completed", // Completed, PendingSale
+      obj.supplier || "",
+      obj.orderRef || "",
       obj.remarks || ""
     ]);
 
@@ -113,9 +94,14 @@ function dispatchSale(txnId) {
     if(!sheet) return "Sheet not found";
 
     const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
-    const statusIndex = headers.indexOf("Status");
-    const idIndex = headers.indexOf("TxnID");
+    if(data.length === 0) return "No data";
+
+    // Find headers dynamically lowercase to avoid mismatch
+    const headers = data.shift().map(h => h.toString().toLowerCase());
+    const statusIndex = headers.indexOf("status");
+    const idIndex = headers.indexOf("txnid");
+
+    if(statusIndex === -1 || idIndex === -1) return "Missing columns (TxnID or Status) in Transactions sheet.";
 
     for(let i=0; i<data.length; i++){
       if(data[i][idIndex] === txnId){
@@ -136,36 +122,46 @@ function getReportsData() {
     let godownStates = {};
     if(godownsSheet) {
       const gData = godownsSheet.getDataRange().getValues();
-      gData.shift(); // headers
-      gData.forEach(row => {
-        godownStates[row[1]] = row[2]; // Map Name -> State
-      });
+      if(gData.length > 0) {
+        gData.shift(); // headers
+        gData.forEach(row => {
+          if(row[1]) godownStates[row[1]] = row[2]; // Map Name -> State
+        });
+      }
     }
 
     const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
     const sheet = ss.getSheetByName("Transactions");
-    if (!sheet) return { error: "No transactions found." };
+    if (!sheet) return { error: "No transactions found. Make sure you have saved at least one entry." };
 
     const data = sheet.getDataRange().getValues();
-    const headers = data.shift();
+    if(data.length < 2) return { detailed: [], stateWise: [], itemWise: [], activeTransit: [], pendingSales: [] };
 
-    // Process transactions into current state
-    let inventory = {}; // Key: Item|Brand|LocationType|LocationName
+    const headersRaw = data.shift();
+    const h = {};
+    headersRaw.forEach((head, idx) => { h[head.toString().toLowerCase()] = idx; });
 
+    let inventory = {};
     data.forEach(row => {
-      let txn = {};
-      headers.forEach((h, i) => txn[h] = row[i]);
+      const type = row[h["type"]];
+      const itemName = row[h["itemname"]];
+      const qtyStr = row[h["qty"]];
+      if(!type || !itemName || !qtyStr) return; // skip bad rows
 
-      const itemKeyBase = `${txn.ItemName}|${txn.Brand}`;
-      const qty = parseFloat(txn.Qty) || 0;
+      const qty = parseFloat(qtyStr) || 0;
+      const status = row[h["status"]];
+      const sType = row[h["sourcetype"]];
+      const sLoc = row[h["sourcelocation"]];
+      const dType = row[h["desttype"]];
+      const dLoc = row[h["destlocation"]];
 
-      const addInv = (type, loc, pQty, sQty, pendingQty) => {
-        if(!type || !loc) return;
-        let key = `${itemKeyBase}|${type}|${loc}`;
+      const addInv = (locType, locName, pQty, sQty, pendingQty) => {
+        if(!locType || !locName) return;
+        let key = `${itemName}|${locType}|${locName}`;
         if(!inventory[key]) inventory[key] = {
-          itemName: txn.ItemName, brand: txn.Brand,
-          locType: type, locName: loc,
-          state: godownStates[loc] || '-',
+          itemName: itemName,
+          locType: locType, locName: locName,
+          state: godownStates[locName] || '-',
           physical: 0, saleable: 0, pending: 0
         };
         inventory[key].physical += pQty;
@@ -173,61 +169,69 @@ function getReportsData() {
         inventory[key].pending += pendingQty;
       };
 
-      if (txn.Type === "Opening" || txn.Type === "Purchase") {
-        addInv(txn.DestType, txn.DestLocation, qty, qty, 0);
+      if (type === "Opening" || type === "Purchase") {
+        addInv(dType, dLoc, qty, qty, 0);
       }
-      else if (txn.Type === "Transfer") {
-        addInv(txn.SourceType, txn.SourceLocation, -qty, -qty, 0);
-        addInv(txn.DestType, txn.DestLocation, qty, qty, 0);
+      else if (type === "Transfer") {
+        addInv(sType, sLoc, -qty, -qty, 0);
+        addInv(dType, dLoc, qty, qty, 0);
       }
-      else if (txn.Type === "SaleOrder") {
-        if(txn.Status === "PendingSale") {
-          // Reduces saleable, increases pending, physical untouched
-          addInv(txn.SourceType, txn.SourceLocation, 0, -qty, qty);
-        } else if (txn.Status === "Completed") {
-          // Dispatched! physical gone, saleable was already gone, pending gone
-          addInv(txn.SourceType, txn.SourceLocation, -qty, -qty, 0);
+      else if (type === "SaleOrder") {
+        if(status === "PendingSale") {
+          addInv(sType, sLoc, 0, -qty, qty);
+        } else if (status === "Completed") {
+          addInv(sType, sLoc, -qty, -qty, 0);
         }
       }
     });
 
-    let rawInv = Object.values(inventory).filter(i => i.physical !== 0 || i.pending !== 0 || i.saleable !== 0);
+    let rawInv = Object.values(inventory).filter(i => i.physical > 0 || i.pending > 0 || i.saleable !== 0);
 
-    // Report A: Detailed Stock
-    // Report B: State-wise
     let stateWise = {};
     rawInv.forEach(i => {
       if(i.locType === "Godown") {
-        let key = `${i.itemName}|${i.brand}|${i.state}`;
-        if(!stateWise[key]) stateWise[key] = { state: i.state, item: i.itemName, brand: i.brand, physical: 0, saleable: 0 };
+        let key = `${i.itemName}|${i.state}`;
+        if(!stateWise[key]) stateWise[key] = { state: i.state, item: i.itemName, physical: 0, saleable: 0 };
         stateWise[key].physical += i.physical;
         stateWise[key].saleable += i.saleable;
       }
     });
 
-    // Report C: Total Brand Stock
-    let brandWise = {};
+    let itemWise = {};
     rawInv.forEach(i => {
-      let key = `${i.brand}`;
-      if(!brandWise[key]) brandWise[key] = { brand: i.brand, physical: 0, transit: 0, party: 0, pending: 0, saleable: 0, details: [] };
-      brandWise[key].physical += i.physical;
-      brandWise[key].pending += i.pending;
-      brandWise[key].saleable += i.saleable;
-      if(i.locType === "Transit") brandWise[key].transit += i.physical;
-      if(i.locType === "Party") brandWise[key].party += i.physical;
+      let key = `${i.itemName}`;
+      if(!itemWise[key]) itemWise[key] = { item: i.itemName, physical: 0, transit: 0, party: 0, pending: 0, saleable: 0, details: [] };
+      itemWise[key].physical += i.physical;
+      itemWise[key].pending += i.pending;
+      itemWise[key].saleable += i.saleable;
+      if(i.locType === "Transit") itemWise[key].transit += i.physical;
+      if(i.locType === "Party") itemWise[key].party += i.physical;
 
-      brandWise[key].details.push(i);
+      itemWise[key].details.push(i);
     });
 
-    // Get Pending Sales for Dispatch UI
+    let activeTransit = rawInv.filter(i => i.locType === "Transit" && i.saleable > 0);
+
     let pendingSales = data.map(r => {
-      let obj = {}; headers.forEach((h,i)=>obj[h]=r[i]); return obj;
+      return {
+        Timestamp: r[h["timestamp"]],
+        TxnID: r[h["txnid"]],
+        Type: r[h["type"]],
+        Status: r[h["status"]],
+        ItemName: r[h["itemname"]],
+        Qty: r[h["qty"]],
+        SourceType: r[h["sourcetype"]],
+        SourceLocation: r[h["sourcelocation"]],
+        DestLocation: r[h["destlocation"]],
+        OrderRef: h["orderref"] !== undefined ? r[h["orderref"]] : "-"
+      };
     }).filter(t => t.Type === "SaleOrder" && t.Status === "PendingSale");
 
     return {
       detailed: rawInv,
       stateWise: Object.values(stateWise),
-      brandWise: Object.values(brandWise),
+      itemWise: Object.values(itemWise),
+      activeTransit: activeTransit,
       pendingSales: pendingSales
     };
   } catch (err) {

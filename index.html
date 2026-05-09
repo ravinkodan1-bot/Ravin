@@ -7,20 +7,15 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; padding: 0; width: 100%; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #333; }
 
-    /* Navbar */
     .navbar { background: #0b5394; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-
-    /* Tabs */
     .tabs { display: flex; overflow-x: auto; background: white; padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 54px; z-index: 99; white-space: nowrap; }
     .tab { padding: 10px 20px; margin-right: 10px; background: #f0f5fb; border-radius: 8px; cursor: pointer; font-weight: bold; color: #555; transition: 0.3s; }
     .tab.active { background: #0b5394; color: white; }
 
-    /* Container */
     .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
     .view { display: none; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
     .view.active { display: block; }
 
-    /* Typography & Forms */
     h2 { color: #0b5394; margin-top: 0; border-bottom: 2px solid #e0eaf5; padding-bottom: 10px; }
     .row { margin-bottom: 15px; }
     label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; }
@@ -29,33 +24,35 @@
     button.btn { width: 100%; background: #0b5394; color: white; border: none; padding: 15px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     button.btn:active { background: #073763; transform: scale(0.98); }
     button.btn:disabled { background: #999; cursor: not-allowed; }
+    button.action-btn { background: #f0f5fb; color: #0b5394; border: 1px solid #0b5394; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight:bold; margin: 2px; }
+    button.action-btn:hover { background: #0b5394; color: white; }
 
-    /* Tables */
     .table-responsive { overflow-x: auto; margin-top: 15px; }
     table { width: 100%; border-collapse: collapse; min-width: 600px; }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
     th { background: #f0f5fb; color: #0b5394; }
 
-    /* Message Box */
     .msg { margin-top: 15px; padding: 10px; border-radius: 8px; display: none; font-weight: bold; text-align: center; }
     .msg.success { background: #d4edda; color: #155724; display: block; }
     .msg.error { background: #f8d7da; color: #721c24; display: block; }
 
-    /* Report Cards */
     .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
     .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .card-title { font-size: 18px; font-weight: bold; color: #0b5394; margin-bottom: 10px; }
     .card-stat { font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; }
     .card-stat span { font-weight: bold; }
 
-    /* Accordion / Expandable */
     .details-row { display: none; background: #fafafa; }
     .details-row.open { display: table-row; }
     .expand-btn { cursor: pointer; color: #0b5394; text-decoration: underline; background: none; border: none; font-size: 14px; padding: 0; }
 
-    /* Loading Overlay */
     #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 999; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #0b5394; flex-direction: column; }
     .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #0b5394; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+
+    /* Modal for actions */
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+    .modal-content { background:white; padding:25px; border-radius:12px; width:90%; max-width:400px; }
+
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
@@ -71,25 +68,24 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="switchTab('purchase')">🛒 Purchase</div>
-  <div class="tab" onclick="switchTab('transfer')">🚚 Transfer</div>
+  <div class="tab" onclick="switchTab('transit')">🚚 Active Transit</div>
   <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
-  <div class="tab" onclick="switchTab('dispatch')">📦 Dispatch</div>
+  <div class="tab" onclick="switchTab('dispatch')">📦 Pending Dispatch</div>
   <div class="tab" onclick="switchTab('opening')">📦 Opening Stock</div>
 </div>
 
 <div class="container">
-
-  <!-- DASHBOARD / REPORTS -->
+  <!-- DASHBOARD -->
   <div id="dashboard" class="view active">
     <h2>Reports Dashboard <button onclick="loadReports()" style="float:right; font-size:14px; padding:5px 10px;">Refresh</button></h2>
 
-    <h3 style="color:#333; border-bottom:1px solid #ccc;">C. Total Brand Stock (Click details)</h3>
-    <div class="card-grid" id="brandReportCards"></div>
+    <h3 style="color:#333; border-bottom:1px solid #ccc;">C. Total Item Stock Summary</h3>
+    <div class="card-grid" id="itemReportCards"></div>
 
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">B. State-Wise Stock</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>State</th><th>Item</th><th>Brand</th><th>Physical Qty</th><th>Saleable Qty</th></tr></thead>
+        <thead><tr><th>State</th><th>Item</th><th>Physical Qty</th><th>Saleable Qty</th></tr></thead>
         <tbody id="stateReportTable"></tbody>
       </table>
     </div>
@@ -97,7 +93,7 @@
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">A. Detailed Physical vs Saleable</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>Location</th><th>Type</th><th>Item</th><th>Brand</th><th>Physical</th><th>Pending Sale</th><th>Saleable</th></tr></thead>
+        <thead><tr><th>Location</th><th>Type</th><th>Item</th><th>Physical</th><th>Pending Sale</th><th>Saleable</th></tr></thead>
         <tbody id="detailedReportTable"></tbody>
       </table>
     </div>
@@ -108,95 +104,63 @@
     <h2>🛒 Purchase Entry (Local/Import)</h2>
     <form id="formPurchase" onsubmit="submitForm(event, 'Purchase')">
       <div class="row">
-        <label>Item</label>
-        <select id="p_item" required onchange="populateBrands('p_item', 'p_brand')"><option value="">Select Item</option></select>
+        <label>Purchased From (Supplier/Party)</label>
+        <select id="p_supplier" required><option value="">Select Supplier</option></select>
       </div>
       <div class="row">
-        <label>Brand</label>
-        <select id="p_brand" required><option value="">Select Brand</option></select>
+        <label>Item</label>
+        <select id="p_item" required><option value="">Select Item</option></select>
       </div>
       <div class="row">
         <label>Quantity</label>
         <input type="number" id="p_qty" required min="0.01" step="any">
       </div>
       <div class="row">
-        <label>Destination Type</label>
+        <label>Destination (Where is it going?)</label>
         <select id="p_destType" required onchange="populateDest('p_destType', 'p_destLoc')">
           <option value="">Select</option>
-          <option value="Party">Purchased Party (Direct)</option>
-          <option value="Transit">Transit</option>
+          <option value="Transit">Direct to Transit</option>
+          <option value="Party">Hold at Supplier/Party Location</option>
+          <option value="Godown">Direct to Godown</option>
         </select>
       </div>
       <div class="row">
-        <label>Destination Location</label>
-        <select id="p_destLoc" required><option value="">Select Location</option></select>
+        <label>Destination Name</label>
+        <select id="p_destLoc" required><option value="">Select</option></select>
       </div>
       <div class="row">
-        <label>Remarks</label>
-        <input type="text" id="p_remarks">
+        <label>Remarks / PO Number</label>
+        <input type="text" id="p_remarks" placeholder="Optional PO or notes">
       </div>
       <button type="submit" class="btn">Save Purchase</button>
       <div id="msg_Purchase" class="msg"></div>
     </form>
   </div>
 
-  <!-- TRANSFER -->
-  <div id="transfer" class="view">
-    <h2>🚚 Stock Transfer</h2>
-    <form id="formTransfer" onsubmit="submitForm(event, 'Transfer')">
-      <div class="row">
-        <label>Item</label>
-        <select id="t_item" required onchange="populateBrands('t_item', 't_brand')"><option value="">Select Item</option></select>
-      </div>
-      <div class="row">
-        <label>Brand</label>
-        <select id="t_brand" required><option value="">Select Brand</option></select>
-      </div>
-      <div class="row">
-        <label>Quantity</label>
-        <input type="number" id="t_qty" required min="0.01" step="any">
-      </div>
-      <div class="row">
-        <label>Source Type</label>
-        <select id="t_sourceType" required onchange="populateDest('t_sourceType', 't_sourceLoc')">
-          <option value="">Select</option>
-          <option value="Party">Party</option>
-          <option value="Transit">Transit</option>
-          <option value="Godown">Godown</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>Source Location</label>
-        <select id="t_sourceLoc" required><option value="">Select Source</option></select>
-      </div>
-      <div class="row">
-        <label>Destination Type</label>
-        <select id="t_destType" required onchange="populateDest('t_destType', 't_destLoc')">
-          <option value="">Select</option>
-          <option value="Transit">Transit</option>
-          <option value="Godown">Godown</option>
-        </select>
-      </div>
-      <div class="row">
-        <label>Destination Location</label>
-        <select id="t_destLoc" required><option value="">Select Destination</option></select>
-      </div>
-      <button type="submit" class="btn">Transfer Stock</button>
-      <div id="msg_Transfer" class="msg"></div>
-    </form>
+  <!-- ACTIVE TRANSIT -->
+  <div id="transit" class="view">
+    <h2>🚚 Active Transit Management</h2>
+    <p style="color:#555;">These items are currently on the move. You can receive them into a Godown, or fulfill a Sale Order directly from Transit.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Item</th><th>Transit Location</th><th>Available Qty</th><th>Actions</th></tr></thead>
+        <tbody id="transitTable"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- SALE ORDER -->
   <div id="sale" class="view">
-    <h2>🧾 Sale Order (Pending Dispatch)</h2>
+    <h2>🧾 Create Sale Order</h2>
+    <p style="color:#555;">This will reserve stock. Stock will not leave physical inventory until Dispatched.</p>
     <form id="formSaleOrder" onsubmit="submitForm(event, 'SaleOrder')">
       <div class="row">
-        <label>Item</label>
-        <select id="s_item" required onchange="populateBrands('s_item', 's_brand')"><option value="">Select Item</option></select>
+        <label>Order Ref / Invoice No</label>
+        <input type="text" id="s_orderRef" required placeholder="e.g., SO-1001">
       </div>
       <div class="row">
-        <label>Brand</label>
-        <select id="s_brand" required><option value="">Select Brand</option></select>
+        <label>Item</label>
+        <select id="s_item" required><option value="">Select Item</option></select>
       </div>
       <div class="row">
         <label>Quantity</label>
@@ -212,7 +176,7 @@
         </select>
       </div>
       <div class="row">
-        <label>Fulfill Location</label>
+        <label>Source Name</label>
         <select id="s_sourceLoc" required><option value="">Select Source</option></select>
       </div>
       <div class="row">
@@ -226,10 +190,11 @@
 
   <!-- DISPATCH -->
   <div id="dispatch" class="view">
-    <h2>📦 Dispatch Pending Sales</h2>
+    <h2>📦 Pending Dispatches</h2>
+    <p style="color:#555;">Mark items as Dispatched when they physically leave your possession.</p>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>Date</th><th>Item</th><th>Brand</th><th>Qty</th><th>Source</th><th>Buyer</th><th>Action</th></tr></thead>
+        <thead><tr><th>Date</th><th>Order Ref</th><th>Item</th><th>Qty</th><th>Source</th><th>Buyer</th><th>Action</th></tr></thead>
         <tbody id="dispatchTable"></tbody>
       </table>
     </div>
@@ -242,11 +207,7 @@
     <form id="formOpening" onsubmit="submitForm(event, 'Opening')">
       <div class="row">
         <label>Item</label>
-        <select id="o_item" required onchange="populateBrands('o_item', 'o_brand')"><option value="">Select Item</option></select>
-      </div>
-      <div class="row">
-        <label>Brand</label>
-        <select id="o_brand" required><option value="">Select Brand</option></select>
+        <select id="o_item" required><option value="">Select Item</option></select>
       </div>
       <div class="row">
         <label>Quantity</label>
@@ -262,18 +223,50 @@
         </select>
       </div>
       <div class="row">
-        <label>Location</label>
-        <select id="o_destLoc" required><option value="">Select Location</option></select>
+        <label>Location Name</label>
+        <select id="o_destLoc" required><option value="">Select</option></select>
       </div>
       <button type="submit" class="btn">Save Opening Stock</button>
       <div id="msg_Opening" class="msg"></div>
     </form>
   </div>
+</div>
 
+<!-- Modal for Transit Actions -->
+<div id="actionModal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">Action</h3>
+    <form id="formTransitAction" onsubmit="submitTransitAction(event)">
+      <input type="hidden" id="ta_type">
+      <input type="hidden" id="ta_sourceLoc">
+      <input type="hidden" id="ta_item">
+
+      <div class="row">
+        <label>Quantity (Max: <span id="ta_maxQty"></span>)</label>
+        <input type="number" id="ta_qty" required min="0.01" step="any">
+      </div>
+
+      <div class="row" id="ta_godown_wrap" style="display:none;">
+        <label>Receive into Godown</label>
+        <select id="ta_destGodown"><option value="">Select Godown</option></select>
+      </div>
+
+      <div class="row" id="ta_sale_wrap" style="display:none;">
+        <label>Order Ref No</label>
+        <input type="text" id="ta_orderRef" placeholder="e.g. SO-2001">
+        <label style="margin-top:10px;">Buyer Name</label>
+        <select id="ta_buyer"><option value="">Select Buyer</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="ta_btn">Confirm</button>
+      <button type="button" class="btn" style="background:#888;" onclick="closeModal()">Cancel</button>
+      <div id="msg_Modal" class="msg"></div>
+    </form>
+  </div>
 </div>
 
 <script>
-let master = { items: [], brands: [], godowns: [], parties: [] };
+let master = { items: [], godowns: [], parties: [] };
 
 function showMsg(id, isSuccess, text) {
   const el = document.getElementById(id);
@@ -287,35 +280,36 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
   event.currentTarget.classList.add('active');
-  if(tabId === 'dashboard' || tabId === 'dispatch') loadReports();
+  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit') loadReports();
 }
 
 function init() {
   google.script.run.withSuccessHandler(res => {
     if(res.error) {
-      alert("Error loading master data. Please setup Google Sheets tabs (Items, Brands, Godowns, Parties) properly.");
+      alert("Error loading master data: " + res.error);
       document.getElementById('loader').style.display = 'none';
       return;
     }
     master = res;
-    populateItems();
-    populateBuyers();
+    populateDropdowns();
     loadReports();
   }).getMasterData();
 }
 
-function populateItems() {
-  const opts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-  document.getElementById('p_item').innerHTML = opts;
-  document.getElementById('t_item').innerHTML = opts;
-  document.getElementById('s_item').innerHTML = opts;
-  document.getElementById('o_item').innerHTML = opts;
-}
+function populateDropdowns() {
+  // Items
+  const itemOpts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+  ['p_item', 's_item', 'o_item'].forEach(id => document.getElementById(id).innerHTML = itemOpts);
 
-function populateBrands(itemSelectId, brandSelectId) {
-  // If items sheet specifies brand, filter. Otherwise show all brands.
-  const opts = '<option value="">Select Brand</option>' + master.brands.map(b => `<option value="${b.name}">${b.name}</option>`).join('');
-  document.getElementById(brandSelectId).innerHTML = opts;
+  // Parties / Suppliers / Buyers
+  const partyOpts = '<option value="">Select</option>' + master.parties.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('p_supplier').innerHTML = partyOpts;
+  document.getElementById('s_destLoc').innerHTML = partyOpts;
+  document.getElementById('ta_buyer').innerHTML = partyOpts;
+
+  // Godowns for Transit modal
+  const godownOpts = '<option value="">Select Godown</option>' + master.godowns.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+  document.getElementById('ta_destGodown').innerHTML = godownOpts;
 }
 
 function populateDest(typeSelectId, locSelectId) {
@@ -323,13 +317,9 @@ function populateDest(typeSelectId, locSelectId) {
   let locs = [];
   if (type === 'Godown') locs = master.godowns.map(g => g.name);
   else if (type === 'Party') locs = master.parties.map(p => p.name);
-  else if (type === 'Transit') locs = ["General Transit"];
+  else if (type === 'Transit') locs = ["General Transit"]; // Can add Multiple Transit routes later
 
   document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
-}
-
-function populateBuyers() {
-  document.getElementById('s_destLoc').innerHTML = '<option value="">Select Buyer</option>' + master.parties.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
 }
 
 function submitForm(e, type) {
@@ -340,27 +330,22 @@ function submitForm(e, type) {
 
   let prefix = '';
   if(type==='Purchase') prefix='p_';
-  if(type==='Transfer') prefix='t_';
   if(type==='SaleOrder') prefix='s_';
   if(type==='Opening') prefix='o_';
 
   let obj = {
     type: type,
     itemName: document.getElementById(prefix+'item').value,
-    brand: document.getElementById(prefix+'brand').value,
     qty: document.getElementById(prefix+'qty').value,
   };
 
   if(type==='Purchase') {
+    obj.supplier = document.getElementById('p_supplier').value;
     obj.destType = document.getElementById('p_destType').value;
     obj.destLocation = document.getElementById('p_destLoc').value;
     obj.remarks = document.getElementById('p_remarks').value;
-  } else if(type==='Transfer') {
-    obj.sourceType = document.getElementById('t_sourceType').value;
-    obj.sourceLocation = document.getElementById('t_sourceLoc').value;
-    obj.destType = document.getElementById('t_destType').value;
-    obj.destLocation = document.getElementById('t_destLoc').value;
   } else if(type==='SaleOrder') {
+    obj.orderRef = document.getElementById('s_orderRef').value;
     obj.sourceType = document.getElementById('s_sourceType').value;
     obj.sourceLocation = document.getElementById('s_sourceLoc').value;
     obj.destType = "Buyer";
@@ -395,42 +380,42 @@ function loadReports() {
   }).getReportsData();
 }
 
-function toggleDetails(brandId) {
-  const rows = document.querySelectorAll('.det-' + brandId.replace(/\s+/g, '-'));
+function toggleDetails(itemId) {
+  const rows = document.querySelectorAll('.det-' + itemId.replace(/[^a-zA-Z0-9]/g, '-'));
   rows.forEach(r => r.classList.toggle('open'));
 }
 
 function renderReports(data) {
-  // A. Detailed
+  // Detailed
   let dHtml = '';
   data.detailed.forEach(d => {
-    dHtml += `<tr><td>${d.locName}</td><td>${d.locType}</td><td>${d.itemName}</td><td>${d.brand}</td>
+    dHtml += `<tr><td>${d.locName}</td><td>${d.locType}</td><td>${d.itemName}</td>
       <td>${d.physical}</td><td>${d.pending}</td><td style="font-weight:bold; color:#0b5394;">${d.saleable}</td></tr>`;
   });
-  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="7">No data available</td></tr>';
+  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="6">No data available</td></tr>';
 
-  // B. State-Wise
+  // State-Wise
   let sHtml = '';
   data.stateWise.forEach(s => {
-    sHtml += `<tr><td>${s.state}</td><td>${s.item}</td><td>${s.brand}</td><td>${s.physical}</td><td>${s.saleable}</td></tr>`;
+    sHtml += `<tr><td>${s.state}</td><td>${s.item}</td><td>${s.physical}</td><td>${s.saleable}</td></tr>`;
   });
-  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="5">No data available</td></tr>';
+  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="4">No data available</td></tr>';
 
-  // C. Brand-Wise Cards
+  // Item-Wise Cards
   let bHtml = '';
-  data.brandWise.forEach((b, idx) => {
-    let safeId = b.brand.replace(/\s+/g, '-');
+  data.itemWise.forEach((i) => {
+    let safeId = i.item.replace(/[^a-zA-Z0-9]/g, '-');
     bHtml += `
       <div class="card">
-        <div class="card-title">${b.brand}</div>
-        <div class="card-stat">Total Physical: <span>${b.physical}</span></div>
-        <div class="card-stat">In Transit: <span>${b.transit}</span></div>
-        <div class="card-stat">At Party: <span>${b.party}</span></div>
-        <div class="card-stat" style="color:red;">Pending Sale: <span>${b.pending}</span></div>
-        <div class="card-stat" style="color:green; font-size:16px;">Saleable: <span>${b.saleable}</span></div>
+        <div class="card-title">${i.item}</div>
+        <div class="card-stat">Total Physical: <span>${i.physical}</span></div>
+        <div class="card-stat">In Transit: <span>${i.transit}</span></div>
+        <div class="card-stat">At Party: <span>${i.party}</span></div>
+        <div class="card-stat" style="color:red;">Pending Sale: <span>${i.pending}</span></div>
+        <div class="card-stat" style="color:green; font-size:16px;">Saleable: <span>${i.saleable}</span></div>
         <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Godown/Location Details</button>
         <table style="margin-top:10px; width:100%; font-size:12px;">
-          ${b.details.map(det => `
+          ${i.details.map(det => `
             <tr class="details-row det-${safeId}">
               <td>${det.locName} (${det.locType})</td>
               <td style="text-align:right;">${det.saleable}</td>
@@ -440,15 +425,32 @@ function renderReports(data) {
       </div>
     `;
   });
-  document.getElementById('brandReportCards').innerHTML = bHtml || '<div style="padding:15px;">No data available</div>';
+  document.getElementById('itemReportCards').innerHTML = bHtml || '<div style="padding:15px;">No data available</div>';
 
-  // Dispatch Table
+  // Active Transit Table
+  let tHtml = '';
+  data.activeTransit.forEach(t => {
+    tHtml += `
+      <tr>
+        <td><strong>${t.itemName}</strong></td>
+        <td>${t.locName}</td>
+        <td style="color:green; font-weight:bold;">${t.saleable}</td>
+        <td>
+          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${t.saleable})">Receive to Godown</button>
+          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${t.saleable})">Sale Direct</button>
+        </td>
+      </tr>
+    `;
+  });
+  document.getElementById('transitTable').innerHTML = tHtml || '<tr><td colspan="4">No items currently in transit.</td></tr>';
+
+  // Pending Dispatches Table
   let dispHtml = '';
   data.pendingSales.forEach(p => {
     let dateStr = new Date(p.Timestamp).toLocaleDateString();
     dispHtml += `
       <tr>
-        <td>${dateStr}</td><td>${p.ItemName}</td><td>${p.Brand}</td><td>${p.Qty}</td>
+        <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${p.Qty}</td>
         <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
         <td><button style="padding:5px 10px; font-size:12px;" onclick="doDispatch('${p.TxnID}', this)">Mark Dispatched</button></td>
       </tr>
@@ -457,8 +459,85 @@ function renderReports(data) {
   document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
 }
 
+// Transit Modal Functions
+function openTransitAction(actionType, itemName, locName, maxQty) {
+  document.getElementById('ta_type').value = actionType;
+  document.getElementById('ta_item').value = itemName;
+  document.getElementById('ta_sourceLoc').value = locName;
+  document.getElementById('ta_maxQty').innerText = maxQty;
+  document.getElementById('ta_qty').max = maxQty;
+  document.getElementById('ta_qty').value = '';
+
+  document.getElementById('ta_godown_wrap').style.display = (actionType === 'Transfer') ? 'block' : 'none';
+  document.getElementById('ta_sale_wrap').style.display = (actionType === 'SaleOrder') ? 'block' : 'none';
+
+  if(actionType === 'Transfer') {
+    document.getElementById('modalTitle').innerText = `Receive ${itemName} to Godown`;
+    document.getElementById('ta_destGodown').required = true;
+    document.getElementById('ta_orderRef').required = false;
+    document.getElementById('ta_buyer').required = false;
+  } else {
+    document.getElementById('modalTitle').innerText = `Sell ${itemName} from Transit`;
+    document.getElementById('ta_destGodown').required = false;
+    document.getElementById('ta_orderRef').required = true;
+    document.getElementById('ta_buyer').required = true;
+  }
+
+  document.getElementById('actionModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('actionModal').style.display = 'none';
+  document.getElementById('formTransitAction').reset();
+}
+
+function submitTransitAction(e) {
+  e.preventDefault();
+  const btn = document.getElementById('ta_btn');
+  btn.disabled = true;
+  btn.innerText = "Processing...";
+
+  const actionType = document.getElementById('ta_type').value;
+  const qtyInput = parseFloat(document.getElementById('ta_qty').value);
+  const maxQty = parseFloat(document.getElementById('ta_maxQty').innerText);
+
+  if(qtyInput > maxQty) {
+    showMsg('msg_Modal', false, "Cannot move more than available qty in transit!");
+    btn.disabled = false; btn.innerText = "Confirm"; return;
+  }
+
+  let obj = {
+    type: actionType,
+    itemName: document.getElementById('ta_item').value,
+    qty: qtyInput,
+    sourceType: "Transit",
+    sourceLocation: document.getElementById('ta_sourceLoc').value,
+  };
+
+  if(actionType === "Transfer") {
+    obj.destType = "Godown";
+    obj.destLocation = document.getElementById('ta_destGodown').value;
+  } else {
+    obj.destType = "Buyer";
+    obj.destLocation = document.getElementById('ta_buyer').value;
+    obj.orderRef = document.getElementById('ta_orderRef').value;
+    obj.status = "PendingSale";
+  }
+
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Confirm";
+    if(res === "Success") {
+      closeModal();
+      loadReports();
+    } else {
+      showMsg('msg_Modal', false, res);
+    }
+  }).saveTransaction(obj);
+}
+
 function doDispatch(txnId, btn) {
-  if(!confirm("Are you sure this stock has physically left?")) return;
+  if(!confirm("Are you sure this stock has physically left the source location?")) return;
   btn.innerText = "Wait...";
   btn.disabled = true;
   google.script.run.withSuccessHandler(res => {
