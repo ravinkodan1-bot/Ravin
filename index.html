@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: white;
+}
+
+.box {
+  width: 100%;
+  min-height: 100vh;
+  background: white;
+  padding: 20px 0px 50px;
+}
+
+@media (min-width: 640px) {
+  body {
+    background: #eef2f7;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+  }
+  .box {
+    max-width: 640px;
+    min-height: unset;
+    border-radius: 18px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    padding: 28px 28px 40px;
+  }
+}
+
+h2 {
+  text-align: center;
+  color: #0b5394;
+  margin: 0 0 24px 0;
+  font-size: 26px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0b5394;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 22px 0 10px;
+  padding: 0 10px 7px;
+  border-bottom: 2px solid #e0eaf5;
+}
+
+.row {
+  margin-bottom: 14px;
+  padding: 0 10px;
+}
+
+label {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 7px;
+  font-size: 15px;
+  color: #222;
+}
+
+input:not([readonly]),
+textarea {
+  width: 100%;
+  padding: 16px 12px;
+  border: 2px solid #d0d8e4;
+  border-radius: 10px;
+  font-size: 17px;
+  outline: none;
+  background: #fff;
+  color: #111;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input:not([readonly]):focus,
+textarea:focus {
+  border-color: #0b5394;
+  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
+}
+
+input[readonly] {
+  width: 100%;
+  padding: 13px 12px;
+  border: 1.5px solid #e0e6ef;
+  border-radius: 10px;
+  font-size: 15px;
+  background: #f0f5fb;
+  color: #555;
+  outline: none;
+}
+
+textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.btn-wrap {
+  padding: 0 10px;
+}
+
+button {
+  width: 100%;
+  background: #0b5394;
+  color: white;
+  border: none;
+  padding: 18px;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 12px;
+  -webkit-appearance: none;
+  transition: background 0.2s, transform 0.1s;
+}
+
+button:active {
+  transform: scale(0.97);
+  background: #073763;
+}
+
+button:disabled {
+  background: #7fa8cc;
+}
+
+.msg-box {
+  margin: 16px 10px 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 14px;
+  border-radius: 12px;
+  display: none;
+}
+
+.msg-success {
+  color: #1a7a1a;
+  background: #e6f9e6;
+  border: 1.5px solid #b2e0b2;
+}
+
+.msg-error {
+  color: #b71c1c;
+  background: #fdecea;
+  border: 1.5px solid #f5c6c6;
+}
+
+  </style>
+</head>
+
+<body>
+<div class="box">
+
+  <h2>🚚 Transit Entry Form</h2>
+
+  <form id="myForm" autocomplete="off">
+
+    <div class="section-title">From Party</div>
+
+    <div class="row">
+      <label>Party Name / फ्रॉम पार्टी</label>
+      <input list="fromPartyList" id="fromParty" placeholder="Select or type party name..." required>
+      <datalist id="fromPartyList"></datalist>
+    </div>
+    <div class="row">
+      <label>Party Code</label>
+      <input type="text" id="fromPartyCode" readonly placeholder="Auto-filled">
+    </div>
+
+    <div class="section-title">To Party</div>
+
+    <div class="row">
+      <label>Party Name / टू पार्टी</label>
+      <input list="toPartyList" id="toParty" placeholder="Select or type party name..." required>
+      <datalist id="toPartyList"></datalist>
+    </div>
+    <div class="row">
+      <label>Party Code</label>
+      <input type="text" id="toPartyCode" readonly placeholder="Auto-filled">
+    </div>
+
+    <div class="section-title">Brand</div>
+
+    <div class="row">
+      <label>Brand Name / ब्रांड</label>
+      <input list="brandList" id="brandName" placeholder="Select or type brand..." required>
+      <datalist id="brandList"></datalist>
+    </div>
+    <div class="row">
+      <label>Brand Code</label>
+      <input type="text" id="brandCode" readonly placeholder="Auto-filled">
+    </div>
+
+    <div class="section-title">Details</div>
+
+    <div class="row">
+      <label>Quantity / मात्रा</label>
+      <input type="number" id="qty" placeholder="Enter quantity" inputmode="numeric" required>
+    </div>
+    <div class="row">
+      <label>Vehicle No / गाड़ी नंबर</label>
+      <input type="text" id="vehicleNo" placeholder="E.G. DL01AB1234" style="text-transform:uppercase">
+    </div>
+    <div class="row">
+      <label>Remarks / टिप्पणी</label>
+      <textarea id="remarks" placeholder="Optional notes..."></textarea>
+    </div>
+
+    <div class="btn-wrap">
+      <button type="submit" id="submitBtn">Submit / जमा करें</button>
+    </div>
+
+  </form>
+
+  <div class="msg-box" id="msg"></div>
+
+</div>
+
+<script>
+
+let partyData = [];
+let brandData = [];
+
+google.script.run.withSuccessHandler(function(data) {
+  partyData = data.parties;
+  brandData = data.brands;
+
+  const fromList  = document.getElementById("fromPartyList");
+  const toList    = document.getElementById("toPartyList");
+  const brandList = document.getElementById("brandList");
+
+  partyData.forEach(p => {
+    let o1 = document.createElement("option"); o1.value = p.name; fromList.appendChild(o1);
+    let o2 = document.createElement("option"); o2.value = p.name; toList.appendChild(o2);
+  });
+  brandData.forEach(b => {
+    let o = document.createElement("option"); o.value = b.name; brandList.appendChild(o);
+  });
+
+}).getMasterData();
+
+
+function matchParty(val) {
+  let f = partyData.find(p => p.name.trim().toLowerCase() === val.trim().toLowerCase());
+  return f ? f.code : "";
+}
+
+function matchBrand(val) {
+  let f = brandData.find(b => b.name.trim().toLowerCase() === val.trim().toLowerCase());
+  return f ? f.code : "";
+}
+
+document.getElementById("fromParty").addEventListener("input", function() {
+  document.getElementById("fromPartyCode").value = matchParty(this.value);
+});
+
+document.getElementById("toParty").addEventListener("input", function() {
+  document.getElementById("toPartyCode").value = matchParty(this.value);
+});
+
+document.getElementById("brandName").addEventListener("input", function() {
+  document.getElementById("brandCode").value = matchBrand(this.value);
+});
+
+document.getElementById("vehicleNo").addEventListener("input", function() {
+  let pos = this.selectionStart;
+  this.value = this.value.toUpperCase();
+  this.setSelectionRange(pos, pos);
+});
+
+document.getElementById("myForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const btn    = document.getElementById("submitBtn");
+  const msgDiv = document.getElementById("msg");
+
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+  msgDiv.style.display = "none";
+
+  let obj = {
+    fromParty    : document.getElementById("fromParty").value,
+    fromPartyCode: document.getElementById("fromPartyCode").value,
+    toParty      : document.getElementById("toParty").value,
+    toPartyCode  : document.getElementById("toPartyCode").value,
+    qty          : document.getElementById("qty").value,
+    brandName    : document.getElementById("brandName").value,
+    brandCode    : document.getElementById("brandCode").value,
+    vehicleNo    : document.getElementById("vehicleNo").value,
+    remarks      : document.getElementById("remarks").value
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const ok = res === "Success";
+      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
+      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
+      msgDiv.style.display = "block";
+      if (ok) {
+        document.getElementById("myForm").reset();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      btn.disabled = false;
+      btn.textContent = "Submit / जमा करें";
+    })
+    .saveData(obj);
+});
+
+</script>
+</body>
+</html>
