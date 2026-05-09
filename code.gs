@@ -165,21 +165,28 @@ function getReportsData() {
 
     const headersRaw = data.shift();
     const h = {};
-    headersRaw.forEach((head, idx) => { h[head.toString().toLowerCase()] = idx; });
+    headersRaw.forEach((head, idx) => { h[head.toString().toLowerCase().trim()] = idx; });
 
     let inventory = {};
     data.forEach(row => {
-      const type = row[h["type"]];
-      const itemName = row[h["itemname"]];
+      const typeRaw = row[h["type"]];
+      const type = typeRaw ? typeRaw.toString().trim() : "";
+
+      const itemNameRaw = row[h["itemname"]];
+      const itemName = itemNameRaw ? itemNameRaw.toString().trim() : "";
+
       const qtyStr = row[h["qty"]];
       if(!type || !itemName || !qtyStr) return; // skip bad rows
 
       const qty = parseFloat(qtyStr) || 0;
-      const status = row[h["status"]];
-      const sType = row[h["sourcetype"]];
-      const sLoc = row[h["sourcelocation"]];
-      const dType = row[h["desttype"]];
-      const dLoc = row[h["destlocation"]];
+
+      const statusRaw = row[h["status"]];
+      const status = statusRaw ? statusRaw.toString().trim() : "";
+
+      const sType = row[h["sourcetype"]] ? row[h["sourcetype"]].toString().trim() : "";
+      const sLoc = row[h["sourcelocation"]] ? row[h["sourcelocation"]].toString().trim() : "";
+      const dType = row[h["desttype"]] ? row[h["desttype"]].toString().trim() : "";
+      const dLoc = row[h["destlocation"]] ? row[h["destlocation"]].toString().trim() : "";
 
       const addInv = (locType, locName, pQty, sQty, pendingQty) => {
         if(!locType || !locName) return;
@@ -239,17 +246,20 @@ function getReportsData() {
     let activeTransit = rawInv.filter(i => i.locType === "Transit" && i.saleable > 0);
 
     let pendingSales = data.map(r => {
+      const t = r[h["type"]] ? r[h["type"]].toString().trim() : "";
+      const s = r[h["status"]] ? r[h["status"]].toString().trim() : "";
+
       return {
         Timestamp: r[h["timestamp"]],
         TxnID: r[h["txnid"]],
-        Type: r[h["type"]],
-        Status: r[h["status"]],
-        ItemName: r[h["itemname"]],
+        Type: t,
+        Status: s,
+        ItemName: r[h["itemname"]] ? r[h["itemname"]].toString().trim() : "",
         Qty: r[h["qty"]],
-        SourceType: r[h["sourcetype"]],
-        SourceLocation: r[h["sourcelocation"]],
-        DestLocation: r[h["destlocation"]],
-        OrderRef: h["orderref"] !== undefined ? r[h["orderref"]] : "-"
+        SourceType: r[h["sourcetype"]] ? r[h["sourcetype"]].toString().trim() : "",
+        SourceLocation: r[h["sourcelocation"]] ? r[h["sourcelocation"]].toString().trim() : "",
+        DestLocation: r[h["destlocation"]] ? r[h["destlocation"]].toString().trim() : "",
+        OrderRef: (h["orderref"] !== undefined && r[h["orderref"]]) ? r[h["orderref"]].toString().trim() : "-"
       };
     }).filter(t => t.Type === "SaleOrder" && t.Status === "PendingSale");
 
