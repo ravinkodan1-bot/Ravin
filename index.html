@@ -232,6 +232,37 @@
   </div>
 </div>
 
+<!-- Modal for Dispatch Actions -->
+<div id="dispatchModal" class="modal">
+  <div class="modal-content">
+    <h3 id="dispatchTitle">Dispatch Order</h3>
+    <form id="formDispatchAction" onsubmit="submitDispatchAction(event)">
+      <input type="hidden" id="d_txnId">
+
+      <div class="row">
+        <label>Driver Name</label>
+        <input type="text" id="d_driverName" required placeholder="Name of Driver">
+      </div>
+      <div class="row">
+        <label>Driver Phone No.</label>
+        <input type="text" id="d_driverPhone" required placeholder="Phone Number">
+      </div>
+      <div class="row">
+        <label>Invoice No / LR No</label>
+        <input type="text" id="d_invoiceNo" required placeholder="e.g. INV-2024-001">
+      </div>
+      <div class="row">
+        <label>Upload Invoice/LR (Optional)</label>
+        <input type="file" id="d_file" accept=".pdf,image/*">
+      </div>
+
+      <button type="submit" class="btn" id="d_btn">Confirm Dispatch</button>
+      <button type="button" class="btn" style="background:#888;" onclick="document.getElementById('dispatchModal').style.display='none'">Cancel</button>
+      <div id="msg_DispatchModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
 <!-- Modal for Transit Actions -->
 <div id="actionModal" class="modal">
   <div class="modal-content">
@@ -452,11 +483,64 @@ function renderReports(data) {
       <tr>
         <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${p.Qty}</td>
         <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
-        <td><button style="padding:5px 10px; font-size:12px;" onclick="doDispatch('${p.TxnID}', this)">Mark Dispatched</button></td>
+        <td><button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button></td>
       </tr>
     `;
   });
   document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
+}
+
+function openDispatchModal(txnId, orderRef) {
+  document.getElementById('formDispatchAction').reset();
+  document.getElementById('d_txnId').value = txnId;
+  document.getElementById('dispatchTitle').innerText = "Dispatch Order: " + orderRef;
+  document.getElementById('dispatchModal').style.display = 'flex';
+}
+
+function submitDispatchAction(e) {
+  e.preventDefault();
+  const btn = document.getElementById('d_btn');
+  btn.disabled = true;
+  btn.innerText = "Uploading & Saving...";
+
+  let obj = {
+    txnId: document.getElementById('d_txnId').value,
+    driverName: document.getElementById('d_driverName').value,
+    driverPhone: document.getElementById('d_driverPhone').value,
+    invoiceNo: document.getElementById('d_invoiceNo').value
+  };
+
+  const fileInput = document.getElementById('d_file');
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      // evt.target.result looks like: data:application/pdf;base64,JVBERi0xLjQK...
+      const dataUrl = evt.target.result;
+      const base64Data = dataUrl.split(',')[1];
+      obj.fileData = base64Data;
+      obj.fileName = file.name;
+      obj.fileType = file.type;
+      sendDispatchToBackend(obj, btn);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    sendDispatchToBackend(obj, btn);
+  }
+}
+
+function sendDispatchToBackend(obj, btn) {
+  google.script.run.withSuccessHandler(res => {
+    if(res === "Success") {
+      document.getElementById('dispatchModal').style.display = 'none';
+      showMsg('msg_Dispatch', true, "Dispatched successfully!");
+      loadReports();
+    } else {
+      showMsg('msg_DispatchModal', false, res);
+      btn.innerText = "Confirm Dispatch";
+      btn.disabled = false;
+    }
+  }).dispatchSale(obj);
 }
 
 // Transit Modal Functions
@@ -536,21 +620,6 @@ function submitTransitAction(e) {
   }).saveTransaction(obj);
 }
 
-function doDispatch(txnId, btn) {
-  if(!confirm("Are you sure this stock has physically left the source location?")) return;
-  btn.innerText = "Wait...";
-  btn.disabled = true;
-  google.script.run.withSuccessHandler(res => {
-    if(res === "Success") {
-      showMsg('msg_Dispatch', true, "Dispatched successfully!");
-      loadReports();
-    } else {
-      showMsg('msg_Dispatch', false, res);
-      btn.innerText = "Mark Dispatched";
-      btn.disabled = false;
-    }
-  }).dispatchSale(txnId);
-}
 
 window.onload = init;
 </script>

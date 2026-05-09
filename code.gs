@@ -60,7 +60,8 @@ function saveTransaction(obj) {
     const sheet = getOrCreateSheet(ss, "Transactions", [
       "Timestamp", "TxnID", "Type", "ItemName", "Qty",
       "SourceType", "SourceLocation", "DestType", "DestLocation",
-      "Status", "Supplier", "OrderRef", "Remarks"
+      "Status", "Supplier", "OrderRef", "Remarks",
+      "DriverName", "DriverPhone", "InvoiceNo", "InvoiceURL"
     ]);
 
     const txnId = "TXN" + new Date().getTime();
@@ -78,7 +79,8 @@ function saveTransaction(obj) {
       obj.status || "Completed", // Completed, PendingSale
       obj.supplier || "",
       obj.orderRef || "",
-      obj.remarks || ""
+      obj.remarks || "",
+      "", "", "", "" // Empty cells for Driver/Invoice later
     ]);
 
     return "Success";
@@ -87,25 +89,49 @@ function saveTransaction(obj) {
   }
 }
 
-function dispatchSale(txnId) {
+// Ensure DriveApp is used so Apps Script prompts for authorization.
+function setupDriveFolder() {
+  const folderName = "Yashika_Invoices";
+  const folders = DriveApp.getFoldersByName(folderName);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(folderName);
+}
+
+function dispatchSale(obj) {
   try {
     const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
     const sheet = ss.getSheetByName("Transactions");
     if(!sheet) return "Sheet not found";
+
+    let fileUrl = "";
+    if (obj.fileData && obj.fileName) {
+      const folder = setupDriveFolder();
+      const blob = Utilities.newBlob(Utilities.base64Decode(obj.fileData), obj.fileType, obj.fileName);
+      const file = folder.createFile(blob);
+      fileUrl = file.getUrl();
+    }
 
     const data = sheet.getDataRange().getValues();
     if(data.length === 0) return "No data";
 
     // Find headers dynamically lowercase to avoid mismatch
     const headers = data.shift().map(h => h.toString().toLowerCase());
-    const statusIndex = headers.indexOf("status");
     const idIndex = headers.indexOf("txnid");
+    const statusIndex = headers.indexOf("status");
+    const dNameIndex = headers.indexOf("drivername");
+    const dPhoneIndex = headers.indexOf("driverphone");
+    const invIndex = headers.indexOf("invoiceno");
+    const urlIndex = headers.indexOf("invoiceurl");
 
     if(statusIndex === -1 || idIndex === -1) return "Missing columns (TxnID or Status) in Transactions sheet.";
 
     for(let i=0; i<data.length; i++){
-      if(data[i][idIndex] === txnId){
+      if(data[i][idIndex] === obj.txnId){
         sheet.getRange(i+2, statusIndex+1).setValue("Completed");
+        if(dNameIndex > -1) sheet.getRange(i+2, dNameIndex+1).setValue(obj.driverName);
+        if(dPhoneIndex > -1) sheet.getRange(i+2, dPhoneIndex+1).setValue(obj.driverPhone);
+        if(invIndex > -1) sheet.getRange(i+2, invIndex+1).setValue(obj.invoiceNo);
+        if(urlIndex > -1 && fileUrl) sheet.getRange(i+2, urlIndex+1).setValue(fileUrl);
         return "Success";
       }
     }
