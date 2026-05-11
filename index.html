@@ -486,12 +486,13 @@ function renderReports(data) {
     bHtml += `
       <div class="card">
         <div class="card-title">${i.item}</div>
-        <div class="card-stat">Total Physical: <span>${i.physical}</span></div>
-        <div class="card-stat">In Transit: <span>${i.transit}</span></div>
-        <div class="card-stat">At Party: <span>${i.party}</span></div>
-        <div class="card-stat" style="color:red;">Pending Sale: <span>${i.pending}</span></div>
-        <div class="card-stat" style="color:green; font-size:16px;">Saleable: <span>${i.saleable}</span></div>
-        <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Godown/Location Details</button>
+        <div class="card-stat">1. Godown (Physical): <span>${i.godown}</span></div>
+        <div class="card-stat">2. At Party (Physical): <span>${i.party}</span></div>
+        <div class="card-stat">3. In Transit (Physical): <span>${i.transit}</span></div>
+        <div class="card-stat" style="color:#b71c1c;">4. Pending Sale: <span>${i.pending}</span></div>
+        <hr style="border-top:1px solid #ddd; margin:8px 0;">
+        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3-4): <span>${i.saleable}</span></div>
+        <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Location Details</button>
         <table style="margin-top:10px; width:100%; font-size:12px;">
           ${i.details.map(det => `
             <tr class="details-row det-${safeId}">

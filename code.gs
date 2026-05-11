@@ -264,12 +264,13 @@ function getReportsData() {
     let itemWise = {};
     rawInv.forEach(i => {
       let key = `${i.itemName}`;
-      if(!itemWise[key]) itemWise[key] = { item: i.itemName, physical: 0, transit: 0, party: 0, pending: 0, saleable: 0, details: [] };
+      if(!itemWise[key]) itemWise[key] = { item: i.itemName, physical: 0, godown: 0, transit: 0, party: 0, pending: 0, saleable: 0, details: [] };
       itemWise[key].physical += i.physical;
       itemWise[key].pending += i.pending;
       itemWise[key].saleable += i.saleable;
       if(i.locType === "Transit") itemWise[key].transit += i.physical;
-      if(i.locType === "Party") itemWise[key].party += i.physical;
+      else if(i.locType === "Party") itemWise[key].party += i.physical;
+      else if(i.locType === "Godown") itemWise[key].godown += i.physical;
 
       itemWise[key].details.push(i);
     });
