@@ -97,6 +97,37 @@ function setupDriveFolder() {
   return DriveApp.createFolder(folderName);
 }
 
+function editSaleOrder(obj) {
+  try {
+    const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
+    const sheet = ss.getSheetByName("Transactions");
+    if(!sheet) return "Sheet not found";
+
+    const data = sheet.getDataRange().getValues();
+    if(data.length === 0) return "No data";
+
+    const headers = data.shift().map(h => h.toString().toLowerCase().trim());
+    const idIndex = headers.indexOf("txnid");
+    const qtyIndex = headers.indexOf("qty");
+    const typeIndex = headers.indexOf("sourcetype");
+    const locIndex = headers.indexOf("sourcelocation");
+
+    if(idIndex === -1) return "Missing TxnID column.";
+
+    for(let i=0; i<data.length; i++){
+      if(data[i][idIndex] === obj.txnId){
+        if(qtyIndex > -1) sheet.getRange(i+2, qtyIndex+1).setValue(obj.qty);
+        if(typeIndex > -1) sheet.getRange(i+2, typeIndex+1).setValue(obj.sourceType);
+        if(locIndex > -1) sheet.getRange(i+2, locIndex+1).setValue(obj.sourceLocation);
+        return "Success";
+      }
+    }
+    return "Sale Order not found";
+  } catch(err) {
+    return err.toString();
+  }
+}
+
 function dispatchSale(obj) {
   try {
     const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);

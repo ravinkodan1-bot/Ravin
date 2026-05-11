@@ -232,6 +232,38 @@
   </div>
 </div>
 
+<!-- Modal for Edit Pending Sale -->
+<div id="editDispatchModal" class="modal">
+  <div class="modal-content">
+    <h3 id="editDispatchTitle">Edit Sale Order</h3>
+    <form id="formEditDispatch" onsubmit="submitEditDispatch(event)">
+      <input type="hidden" id="e_txnId">
+
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="e_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>New Source Type</label>
+        <select id="e_sourceType" required onchange="populateDest('e_sourceType', 'e_sourceLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Purchased Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>New Source Location</label>
+        <select id="e_sourceLoc" required><option value="">Select Source</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="e_btn">Save Changes</button>
+      <button type="button" class="btn" style="background:#888;" onclick="document.getElementById('editDispatchModal').style.display='none'">Cancel</button>
+      <div id="msg_EditDispatchModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
 <!-- Modal for Dispatch Actions -->
 <div id="dispatchModal" class="modal">
   <div class="modal-content">
@@ -498,11 +530,65 @@ function renderReports(data) {
       <tr>
         <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${p.Qty}</td>
         <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
-        <td><button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button></td>
+        <td>
+          <button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button>
+          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${p.Qty}', '${p.SourceType}', '${p.SourceLocation}')">Edit</button>
+        </td>
       </tr>
     `;
   });
   document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
+}
+
+function openEditDispatchModal(txnId, orderRef, qty, sourceType, sourceLoc) {
+  document.getElementById('formEditDispatch').reset();
+  document.getElementById('e_txnId').value = txnId;
+  document.getElementById('editDispatchTitle').innerText = "Edit Sale Order: " + orderRef;
+  document.getElementById('e_qty').value = qty;
+
+  // Try to set source type and populate locations
+  const typeSelect = document.getElementById('e_sourceType');
+  typeSelect.value = sourceType;
+  populateDest('e_sourceType', 'e_sourceLoc');
+
+  // Set location slightly delayed to allow populate to finish
+  setTimeout(() => {
+    document.getElementById('e_sourceLoc').value = sourceLoc;
+  }, 100);
+
+  document.getElementById('editDispatchModal').style.display = 'flex';
+}
+
+function submitEditDispatch(e) {
+  e.preventDefault();
+  const btn = document.getElementById('e_btn');
+  btn.disabled = true;
+  btn.innerText = "Saving...";
+
+  let obj = {
+    txnId: document.getElementById('e_txnId').value,
+    qty: document.getElementById('e_qty').value,
+    sourceType: document.getElementById('e_sourceType').value,
+    sourceLocation: document.getElementById('e_sourceLoc').value
+  };
+
+  google.script.run
+  .withFailureHandler(err => {
+    btn.disabled = false;
+    btn.innerText = "Save Changes";
+    showMsg('msg_EditDispatchModal', false, "Server Error: " + err);
+  })
+  .withSuccessHandler(res => {
+    if(res === "Success") {
+      document.getElementById('editDispatchModal').style.display = 'none';
+      showMsg('msg_Dispatch', true, "Sale Order Updated!");
+      loadReports();
+    } else {
+      showMsg('msg_EditDispatchModal', false, res);
+      btn.disabled = false;
+      btn.innerText = "Save Changes";
+    }
+  }).editSaleOrder(obj);
 }
 
 function openDispatchModal(txnId, orderRef) {
