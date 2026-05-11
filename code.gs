@@ -255,8 +255,9 @@ function getReportsData() {
     rawInv.forEach(i => {
       if(i.locType === "Godown") {
         let key = `${i.itemName}|${i.state}`;
-        if(!stateWise[key]) stateWise[key] = { state: i.state, item: i.itemName, physical: 0, saleable: 0 };
+        if(!stateWise[key]) stateWise[key] = { state: i.state, item: i.itemName, physical: 0, pending: 0, saleable: 0 };
         stateWise[key].physical += i.physical;
+        stateWise[key].pending += i.pending;
         stateWise[key].saleable += i.saleable;
       }
     });
