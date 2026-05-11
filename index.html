@@ -68,6 +68,7 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="switchTab('purchase')">🛒 Purchase</div>
+  <div class="tab" onclick="switchTab('pendingpurchases')">⏳ Pending Purchases</div>
   <div class="tab" onclick="switchTab('transit')">🚚 Active Transit</div>
   <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
   <div class="tab" onclick="switchTab('dispatch')">📦 Pending Dispatch</div>
@@ -138,6 +139,18 @@
   </div>
 
   <!-- ACTIVE TRANSIT -->
+  <!-- PENDING PURCHASES -->
+  <div id="pendingpurchases" class="view">
+    <h2>⏳ Pending Purchases</h2>
+    <p style="color:#555;">These purchases have been recorded at the Supplier's location but have not yet been routed to a Godown or Transit.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Supplier (Party)</th><th>Intended Dest</th><th>Action</th></tr></thead>
+        <tbody id="pendingPurchasesTable"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div id="transit" class="view">
     <h2>🚚 Active Transit Management</h2>
     <p style="color:#555;">These items are currently on the move. You can receive them into a Godown, or fulfill a Sale Order directly from Transit.</p>
@@ -295,6 +308,41 @@
   </div>
 </div>
 
+<!-- Modal for Route Pending Purchases -->
+<div id="routePurchaseModal" class="modal">
+  <div class="modal-content">
+    <h3 id="routeModalTitle">Route Purchase</h3>
+    <form id="formRoutePurchase" onsubmit="submitRoutePurchase(event)">
+      <input type="hidden" id="rp_txnId">
+      <input type="hidden" id="rp_item">
+      <input type="hidden" id="rp_supplier">
+
+      <div class="row">
+        <label>Quantity to Route</label>
+        <input type="number" id="rp_qty" required readonly>
+      </div>
+
+      <div class="row">
+        <label>Final Destination Type</label>
+        <select id="rp_destType" required onchange="populateDest('rp_destType', 'rp_destLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Final Destination Name</label>
+        <select id="rp_destLoc" required><option value="">Select</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="rp_btn">Confirm Routing</button>
+      <button type="button" class="btn" style="background:#888;" onclick="closeRouteModal()">Cancel</button>
+      <div id="msg_routeModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
 <!-- Modal for Transit Actions -->
 <div id="actionModal" class="modal">
   <div class="modal-content">
@@ -343,7 +391,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
   event.currentTarget.classList.add('active');
-  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit') loadReports();
+  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit' || tabId === 'pendingpurchases') loadReports();
 }
 
 function init() {
@@ -463,6 +511,11 @@ function toggleDetails(itemId) {
   rows.forEach(r => r.classList.toggle('open'));
 }
 
+function fmtQty(qty) {
+  if (qty == null) return 0;
+  return Number(parseFloat(qty).toFixed(2));
+}
+
 function renderReports(data) {
   // Detailed
   let dHtml = '';
@@ -470,11 +523,11 @@ function renderReports(data) {
     dHtml += `<tr>
       <td>${d.locName} <span style="font-size:10px;color:#777;">(${d.locType})</span></td>
       <td>${d.itemName}</td>
-      <td>${d.godown}</td>
-      <td>${d.party}</td>
-      <td>${d.transit}</td>
-      <td style="color:#b71c1c;">${d.pending}</td>
-      <td style="font-weight:bold; color:#1a7a1a;">${d.saleable}</td>
+      <td>${fmtQty(d.godown)}</td>
+      <td>${fmtQty(d.party)}</td>
+      <td>${fmtQty(d.transit)}</td>
+      <td style="color:#b71c1c;">${fmtQty(d.pending)}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(d.saleable)}</td>
     </tr>`;
   });
   document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="7">No data available</td></tr>';
@@ -485,11 +538,11 @@ function renderReports(data) {
     sHtml += `<tr>
       <td>${s.state}</td>
       <td>${s.item}</td>
-      <td>${s.godown}</td>
-      <td>${s.party}</td>
-      <td>${s.transit}</td>
-      <td style="color:#b71c1c;">${s.pending}</td>
-      <td style="font-weight:bold; color:#1a7a1a;">${s.saleable}</td>
+      <td>${fmtQty(s.godown)}</td>
+      <td>${fmtQty(s.party)}</td>
+      <td>${fmtQty(s.transit)}</td>
+      <td style="color:#b71c1c;">${fmtQty(s.pending)}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(s.saleable)}</td>
     </tr>`;
   });
   document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="7">No data available</td></tr>';
@@ -501,18 +554,18 @@ function renderReports(data) {
     bHtml += `
       <div class="card">
         <div class="card-title">${i.item}</div>
-        <div class="card-stat">1. Godown (Physical): <span>${i.godown}</span></div>
-        <div class="card-stat">2. At Party (Physical): <span>${i.party}</span></div>
-        <div class="card-stat">3. In Transit (Physical): <span>${i.transit}</span></div>
-        <div class="card-stat" style="color:#b71c1c;">4. Pending Sale: <span>${i.pending}</span></div>
+        <div class="card-stat">1. Godown (Physical): <span>${fmtQty(i.godown)}</span></div>
+        <div class="card-stat">2. At Party (Physical): <span>${fmtQty(i.party)}</span></div>
+        <div class="card-stat">3. In Transit (Physical): <span>${fmtQty(i.transit)}</span></div>
+        <div class="card-stat" style="color:#b71c1c;">4. Pending Sale: <span>${fmtQty(i.pending)}</span></div>
         <hr style="border-top:1px solid #ddd; margin:8px 0;">
-        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3-4): <span>${i.saleable}</span></div>
+        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3-4): <span>${fmtQty(i.saleable)}</span></div>
         <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Location Details</button>
         <table style="margin-top:10px; width:100%; font-size:12px;">
           ${i.details.map(det => `
             <tr class="details-row det-${safeId}">
               <td>${det.locName} (${det.locType})</td>
-              <td style="text-align:right;">${det.saleable}</td>
+              <td style="text-align:right;">${fmtQty(det.saleable)}</td>
             </tr>
           `).join('')}
         </table>
@@ -521,6 +574,27 @@ function renderReports(data) {
   });
   document.getElementById('itemReportCards').innerHTML = bHtml || '<div style="padding:15px;">No data available</div>';
 
+  // Pending Purchases Table
+  let ppHtml = '';
+  if (data.pendingPurchases) {
+    data.pendingPurchases.forEach(p => {
+      let dateStr = new Date(p.Timestamp).toLocaleDateString();
+      ppHtml += `
+        <tr>
+          <td>${dateStr}</td>
+          <td><strong>${p.ItemName}</strong></td>
+          <td>${fmtQty(p.Qty)}</td>
+          <td>${p.Supplier}</td>
+          <td>${p.DestLocation} (${p.DestType})</td>
+          <td>
+            <button class="action-btn" onclick="openRoutePurchaseModal('${p.TxnID}', '${p.ItemName}', ${fmtQty(p.Qty)}, '${p.Supplier}', '${p.DestType}')">Route / Receive</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById('pendingPurchasesTable').innerHTML = ppHtml || '<tr><td colspan="6">No pending purchases to route.</td></tr>';
+
   // Active Transit Table
   let tHtml = '';
   data.activeTransit.forEach(t => {
@@ -528,10 +602,10 @@ function renderReports(data) {
       <tr>
         <td><strong>${t.itemName}</strong></td>
         <td>${t.locName}</td>
-        <td style="color:green; font-weight:bold;">${t.saleable}</td>
+        <td style="color:green; font-weight:bold;">${fmtQty(t.saleable)}</td>
         <td>
-          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${t.saleable})">Receive to Godown</button>
-          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${t.saleable})">Sale Direct</button>
+          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)})">Receive to Godown</button>
+          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)})">Sale Direct</button>
         </td>
       </tr>
     `;
@@ -544,11 +618,11 @@ function renderReports(data) {
     let dateStr = new Date(p.Timestamp).toLocaleDateString();
     dispHtml += `
       <tr>
-        <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${p.Qty}</td>
+        <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${fmtQty(p.Qty)}</td>
         <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
         <td>
           <button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button>
-          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${p.Qty}', '${p.SourceType}', '${p.SourceLocation}')">Edit</button>
+          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${fmtQty(p.Qty)}', '${p.SourceType}', '${p.SourceLocation}')">Edit</button>
         </td>
       </tr>
     `;
@@ -658,6 +732,62 @@ function sendDispatchToBackend(obj, btn) {
       btn.disabled = false;
     }
   }).dispatchSale(obj);
+}
+
+// Route Pending Purchase Modal
+function openRoutePurchaseModal(txnId, itemName, qty, supplier, intendedDestType) {
+  document.getElementById('formRoutePurchase').reset();
+  document.getElementById('rp_txnId').value = txnId;
+  document.getElementById('rp_item').value = itemName;
+  document.getElementById('rp_supplier').value = supplier;
+  document.getElementById('rp_qty').value = qty;
+
+  if(intendedDestType && intendedDestType !== "Party") {
+    const typeSelect = document.getElementById('rp_destType');
+    for (let i = 0; i < typeSelect.options.length; i++) {
+        if (typeSelect.options[i].value === intendedDestType) {
+            typeSelect.selectedIndex = i;
+            populateDest('rp_destType', 'rp_destLoc');
+            break;
+        }
+    }
+  }
+
+  document.getElementById('routePurchaseModal').style.display = 'flex';
+}
+
+function closeRouteModal() {
+  document.getElementById('routePurchaseModal').style.display = 'none';
+  document.getElementById('formRoutePurchase').reset();
+}
+
+function submitRoutePurchase(e) {
+  e.preventDefault();
+  const btn = document.getElementById('rp_btn');
+  btn.disabled = true;
+  btn.innerText = "Routing...";
+
+  let obj = {
+    txnId: document.getElementById('rp_txnId').value,
+    itemName: document.getElementById('rp_item').value,
+    qty: document.getElementById('rp_qty').value,
+    supplier: document.getElementById('rp_supplier').value,
+    destType: document.getElementById('rp_destType').value,
+    destLocation: document.getElementById('rp_destLoc').value
+  };
+
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Confirm Routing";
+    if(res === "Success") {
+      closeRouteModal();
+      alert("Purchase routed successfully!");
+      loadReports();
+    } else {
+      document.getElementById('msg_routeModal').innerText = res;
+      document.getElementById('msg_routeModal').className = "msg error";
+    }
+  }).routePurchase(obj);
 }
 
 // Transit Modal Functions

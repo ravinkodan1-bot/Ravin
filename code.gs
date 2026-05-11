@@ -66,6 +66,18 @@ function saveTransaction(obj) {
 
     const txnId = "TXN" + new Date().getTime();
 
+    let destType = obj.destType || "";
+    let destLoc = obj.destLocation || "";
+    let status = obj.status || "Completed";
+
+    // When purchasing, initial placement is physically at the Supplier (Party).
+    // It remains in PendingRoute until explicitly routed.
+    if (obj.type === "Purchase") {
+      destType = "Party";
+      destLoc = obj.supplier;
+      status = "PendingRoute";
+    }
+
     sheet.appendRow([
       new Date(),
       txnId,
@@ -74,12 +86,12 @@ function saveTransaction(obj) {
       obj.qty,
       obj.sourceType || "", // Godown, Party, Transit
       obj.sourceLocation || "",
-      obj.destType || "",   // Godown, Transit, Buyer
-      obj.destLocation || "",
-      obj.status || "Completed", // Completed, PendingSale
+      destType,   // Godown, Transit, Buyer, Party
+      destLoc,
+      status, // Completed, PendingSale, PendingRoute
       obj.supplier || "",
       obj.orderRef || "",
-      obj.remarks || "",
+      JSON.stringify({ intendedDestType: obj.destType, intendedDestLoc: obj.destLocation, remarks: obj.remarks || "" }), // Store intended destination in remarks
       "", "", "", "" // Empty cells for Driver/Invoice later
     ]);
 
@@ -167,6 +179,46 @@ function dispatchSale(obj) {
       }
     }
     return "Transaction not found";
+  } catch(err) {
+    return err.toString();
+  }
+}
+
+function routePurchase(obj) {
+  try {
+    const ss = SpreadsheetApp.openById(SUBMISSION_SHEET_ID);
+    const sheet = ss.getSheetByName("Transactions");
+    if(!sheet) return "Transactions sheet not found";
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const txnIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "txnid");
+    const statusIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "status");
+
+    let found = false;
+    for(let i=1; i<data.length; i++) {
+      if(data[i][txnIdx] === obj.txnId) {
+        // Mark the original purchase as Routed
+        sheet.getRange(i+1, statusIdx+1).setValue("Routed");
+        found = true;
+        break;
+      }
+    }
+
+    if(!found) return "Purchase transaction not found";
+
+    // Create a new "Transfer" transaction moving it from Party to the final Dest
+    return saveTransaction({
+      type: "Transfer",
+      itemName: obj.itemName,
+      qty: obj.qty,
+      sourceType: "Party",
+      sourceLocation: obj.supplier,
+      destType: obj.destType,
+      destLocation: obj.destLocation,
+      remarks: "Routed from Pending Purchases"
+    });
+
   } catch(err) {
     return err.toString();
   }
@@ -289,7 +341,7 @@ function getReportsData() {
 
     let activeTransit = rawInv.filter(i => i.locType === "Transit" && i.saleable > 0);
 
-    let pendingSales = data.map(r => {
+    let mappedData = data.map(r => {
       const t = r[h["type"]] ? r[h["type"]].toString().trim() : "";
       const s = r[h["status"]] ? r[h["status"]].toString().trim() : "";
 
@@ -300,6 +352,12 @@ function getReportsData() {
         ts = ts ? ts.toString() : "";
       }
 
+      let remarksObj = {};
+      try {
+        let remarksRaw = r[h["remarks"]] ? r[h["remarks"]].toString().trim() : "{}";
+        if (remarksRaw.startsWith("{")) remarksObj = JSON.parse(remarksRaw);
+      } catch(e) {}
+
       return {
         Timestamp: ts,
         TxnID: r[h["txnid"]] ? r[h["txnid"]].toString() : "",
@@ -307,12 +365,17 @@ function getReportsData() {
         Status: s,
         ItemName: r[h["itemname"]] ? r[h["itemname"]].toString().trim() : "",
         Qty: parseFloat(r[h["qty"]]) || 0,
+        Supplier: r[h["supplier"]] ? r[h["supplier"]].toString().trim() : "",
         SourceType: r[h["sourcetype"]] ? r[h["sourcetype"]].toString().trim() : "",
         SourceLocation: r[h["sourcelocation"]] ? r[h["sourcelocation"]].toString().trim() : "",
-        DestLocation: r[h["destlocation"]] ? r[h["destlocation"]].toString().trim() : "",
+        DestType: remarksObj.intendedDestType || (r[h["desttype"]] ? r[h["desttype"]].toString().trim() : ""),
+        DestLocation: remarksObj.intendedDestLoc || (r[h["destlocation"]] ? r[h["destlocation"]].toString().trim() : ""),
         OrderRef: (h["orderref"] !== undefined && r[h["orderref"]]) ? r[h["orderref"]].toString().trim() : "-"
       };
-    }).filter(t => t.Type === "SaleOrder" && t.Status === "PendingSale");
+    });
+
+    let pendingSales = mappedData.filter(t => t.Type === "SaleOrder" && t.Status === "PendingSale");
+    let pendingPurchases = mappedData.filter(t => t.Type === "Purchase" && t.Status === "PendingRoute");
 
     // Important: Google Apps Script can silently fail to return objects if they contain Dates or Functions.
     // By strictly converting values above, we ensure it serializes properly into JSON for the frontend.
@@ -321,7 +384,8 @@ function getReportsData() {
       stateWise: Object.values(stateWise),
       itemWise: Object.values(itemWise),
       activeTransit: activeTransit,
-      pendingSales: pendingSales
+      pendingSales: pendingSales,
+      pendingPurchases: pendingPurchases
     };
   } catch (err) {
     return { error: err.toString() };
