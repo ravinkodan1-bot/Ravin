@@ -401,13 +401,28 @@ function submitForm(e, type) {
 
 function loadReports() {
   document.getElementById('loader').style.display = 'flex';
-  google.script.run.withSuccessHandler(res => {
+  google.script.run
+  .withFailureHandler(err => {
     document.getElementById('loader').style.display = 'none';
-    if(res.error) {
-      console.error(res.error);
+    alert("Server error: " + err);
+  })
+  .withSuccessHandler(res => {
+    document.getElementById('loader').style.display = 'none';
+    if(!res) {
+      alert("Failed to load data. The server returned an empty response. Please check your sheet data.");
       return;
     }
-    renderReports(res);
+    if(res.error) {
+      console.error(res.error);
+      alert("Error: " + res.error);
+      return;
+    }
+    try {
+      renderReports(res);
+    } catch(e) {
+      console.error("UI Render Error:", e);
+      alert("An error occurred while displaying the dashboard: " + e.message);
+    }
   }).getReportsData();
 }
 

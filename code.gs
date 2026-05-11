@@ -249,13 +249,20 @@ function getReportsData() {
       const t = r[h["type"]] ? r[h["type"]].toString().trim() : "";
       const s = r[h["status"]] ? r[h["status"]].toString().trim() : "";
 
+      let ts = r[h["timestamp"]];
+      if(ts && ts instanceof Date) {
+        ts = ts.toISOString(); // Convert Date objects to strings for serialization
+      } else {
+        ts = ts ? ts.toString() : "";
+      }
+
       return {
-        Timestamp: r[h["timestamp"]],
-        TxnID: r[h["txnid"]],
+        Timestamp: ts,
+        TxnID: r[h["txnid"]] ? r[h["txnid"]].toString() : "",
         Type: t,
         Status: s,
         ItemName: r[h["itemname"]] ? r[h["itemname"]].toString().trim() : "",
-        Qty: r[h["qty"]],
+        Qty: parseFloat(r[h["qty"]]) || 0,
         SourceType: r[h["sourcetype"]] ? r[h["sourcetype"]].toString().trim() : "",
         SourceLocation: r[h["sourcelocation"]] ? r[h["sourcelocation"]].toString().trim() : "",
         DestLocation: r[h["destlocation"]] ? r[h["destlocation"]].toString().trim() : "",
@@ -263,6 +270,8 @@ function getReportsData() {
       };
     }).filter(t => t.Type === "SaleOrder" && t.Status === "PendingSale");
 
+    // Important: Google Apps Script can silently fail to return objects if they contain Dates or Functions.
+    // By strictly converting values above, we ensure it serializes properly into JSON for the frontend.
     return {
       detailed: rawInv,
       stateWise: Object.values(stateWise),
