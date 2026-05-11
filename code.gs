@@ -226,11 +226,15 @@ function getReportsData() {
           itemName: itemName,
           locType: locType, locName: locName,
           state: godownStates[locName] || '-',
-          physical: 0, saleable: 0, pending: 0
+          physical: 0, godown: 0, party: 0, transit: 0, saleable: 0, pending: 0
         };
         inventory[key].physical += pQty;
         inventory[key].saleable += sQty;
         inventory[key].pending += pendingQty;
+
+        if(locType === "Godown") inventory[key].godown += pQty;
+        else if(locType === "Party") inventory[key].party += pQty;
+        else if(locType === "Transit") inventory[key].transit += pQty;
       };
 
       if (type === "Opening" || type === "Purchase") {
@@ -253,13 +257,20 @@ function getReportsData() {
 
     let stateWise = {};
     rawInv.forEach(i => {
-      if(i.locType === "Godown") {
-        let key = `${i.itemName}|${i.state}`;
-        if(!stateWise[key]) stateWise[key] = { state: i.state, item: i.itemName, physical: 0, pending: 0, saleable: 0 };
-        stateWise[key].physical += i.physical;
-        stateWise[key].pending += i.pending;
-        stateWise[key].saleable += i.saleable;
-      }
+      // Grouping all items by state. If it doesn't have a state (e.g. Party/Transit), it groups under 'N/A' or '-'
+      let st = i.state || "N/A";
+      let key = `${i.itemName}|${st}`;
+      if(!stateWise[key]) stateWise[key] = {
+        state: st, item: i.itemName,
+        physical: 0, godown: 0, party: 0, transit: 0,
+        pending: 0, saleable: 0
+      };
+      stateWise[key].physical += i.physical;
+      stateWise[key].godown += i.godown;
+      stateWise[key].party += i.party;
+      stateWise[key].transit += i.transit;
+      stateWise[key].pending += i.pending;
+      stateWise[key].saleable += i.saleable;
     });
 
     let itemWise = {};

@@ -85,7 +85,7 @@
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">B. State-Wise Stock</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>State</th><th>Item</th><th>Physical Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <thead><tr><th>State</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
         <tbody id="stateReportTable"></tbody>
       </table>
     </div>
@@ -93,7 +93,7 @@
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">A. Detailed Physical vs Saleable</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>Location</th><th>Type</th><th>Item</th><th>Physical Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <thead><tr><th>Location</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
         <tbody id="detailedReportTable"></tbody>
       </table>
     </div>
@@ -467,17 +467,32 @@ function renderReports(data) {
   // Detailed
   let dHtml = '';
   data.detailed.forEach(d => {
-    dHtml += `<tr><td>${d.locName}</td><td>${d.locType}</td><td>${d.itemName}</td>
-      <td>${d.physical}</td><td>${d.pending}</td><td style="font-weight:bold; color:#0b5394;">${d.saleable}</td></tr>`;
+    dHtml += `<tr>
+      <td>${d.locName} <span style="font-size:10px;color:#777;">(${d.locType})</span></td>
+      <td>${d.itemName}</td>
+      <td>${d.godown}</td>
+      <td>${d.party}</td>
+      <td>${d.transit}</td>
+      <td style="color:#b71c1c;">${d.pending}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${d.saleable}</td>
+    </tr>`;
   });
-  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="6">No data available</td></tr>';
+  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="7">No data available</td></tr>';
 
   // State-Wise
   let sHtml = '';
   data.stateWise.forEach(s => {
-    sHtml += `<tr><td>${s.state}</td><td>${s.item}</td><td>${s.physical}</td><td>${s.pending}</td><td style="font-weight:bold; color:#0b5394;">${s.saleable}</td></tr>`;
+    sHtml += `<tr>
+      <td>${s.state}</td>
+      <td>${s.item}</td>
+      <td>${s.godown}</td>
+      <td>${s.party}</td>
+      <td>${s.transit}</td>
+      <td style="color:#b71c1c;">${s.pending}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${s.saleable}</td>
+    </tr>`;
   });
-  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="5">No data available</td></tr>';
+  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="7">No data available</td></tr>';
 
   // Item-Wise Cards
   let bHtml = '';
