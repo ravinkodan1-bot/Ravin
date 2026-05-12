@@ -339,8 +339,9 @@
       <input type="hidden" id="rp_supplier">
 
       <div class="row">
-        <label>Quantity to Route</label>
-        <input type="number" id="rp_qty" required readonly>
+        <label>Quantity to Route (Max: <span id="rp_maxQtyTxt"></span>)</label>
+        <input type="number" id="rp_qty" required min="0.01" step="any">
+        <input type="hidden" id="rp_maxQty">
       </div>
 
       <div class="row">
@@ -789,6 +790,9 @@ function openRoutePurchaseModal(txnId, itemName, qty, supplier, intendedDestType
   document.getElementById('rp_item').value = itemName;
   document.getElementById('rp_supplier').value = supplier;
   document.getElementById('rp_qty').value = qty;
+  document.getElementById('rp_qty').max = qty;
+  document.getElementById('rp_maxQty').value = qty;
+  document.getElementById('rp_maxQtyTxt').innerText = qty;
 
   if(intendedDestType && intendedDestType !== "Party") {
     const typeSelect = document.getElementById('rp_destType');
@@ -815,10 +819,22 @@ function submitRoutePurchase(e) {
   btn.disabled = true;
   btn.innerText = "Routing...";
 
+  const inputQty = parseFloat(document.getElementById('rp_qty').value);
+  const maxQty = parseFloat(document.getElementById('rp_maxQty').value);
+
+  if (inputQty > maxQty) {
+    document.getElementById('msg_routeModal').innerText = `Cannot route more than ${maxQty}`;
+    document.getElementById('msg_routeModal').className = "msg error";
+    btn.disabled = false;
+    btn.innerText = "Confirm Routing";
+    return;
+  }
+
   let obj = {
     txnId: document.getElementById('rp_txnId').value,
     itemName: document.getElementById('rp_item').value,
-    qty: document.getElementById('rp_qty').value,
+    qty: inputQty,
+    maxQty: maxQty, // send maxQty to the backend to help determine if it's partial or full
     supplier: document.getElementById('rp_supplier').value,
     destType: document.getElementById('rp_destType').value,
     destLocation: document.getElementById('rp_destLoc').value

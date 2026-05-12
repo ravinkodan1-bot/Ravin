@@ -72,10 +72,15 @@ function saveTransaction(obj) {
 
     // When purchasing, initial placement is physically at the Supplier (Party).
     // It remains in PendingRoute until explicitly routed.
-    if (obj.type === "Purchase") {
+    // However, if we pass status explicitly (e.g., "Routed" from a split purchase), don't override it.
+    if (obj.type === "Purchase" && !obj.status) {
       destType = "Party";
       destLoc = obj.supplier;
       status = "PendingRoute";
+    } else if (obj.type === "Purchase" && obj.status) {
+      destType = obj.destType;
+      destLoc = obj.destLocation;
+      status = obj.status;
     }
 
     let remarksObj = {
@@ -201,12 +206,30 @@ function routePurchase(obj) {
     const headers = data[0];
     const txnIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "txnid");
     const statusIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "status");
+    const qtyIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "qty");
 
     let found = false;
+    let isPartial = false;
+
     for(let i=1; i<data.length; i++) {
       if(data[i][txnIdx] === obj.txnId) {
-        // Mark the original purchase as Routed
-        sheet.getRange(i+1, statusIdx+1).setValue("Routed");
+        let originalQty = parseFloat(data[i][qtyIdx]) || 0;
+        let routedQty = parseFloat(obj.qty) || 0;
+
+        if (routedQty < originalQty) {
+          // Partial Route: We don't reduce original Qty here because "Transfer" will safely deduct it.
+          // BUT since the original row needs to stay 'PendingRoute' for the remainder,
+          // we shouldn't change the status either. The easiest and mathematically safest way is:
+          // Just let the "Transfer" transaction deduct the routedQty from Party.
+          // However, the report logic expects "PendingPurchases" to show only items with status "PendingRoute".
+          // If we leave it PendingRoute but transfer some out, it will still show the original Qty in Pending Purchases, which is wrong.
+          // Correct fix: Split the purchase into two.
+          isPartial = true;
+          sheet.getRange(i+1, qtyIdx+1).setValue(originalQty - routedQty); // Original keeps remainder
+        } else {
+          // Full Route: Mark as completed/routed
+          sheet.getRange(i+1, statusIdx+1).setValue("Routed");
+        }
         found = true;
         break;
       }
@@ -214,17 +237,34 @@ function routePurchase(obj) {
 
     if(!found) return "Purchase transaction not found";
 
-    // Create a new "Transfer" transaction moving it from Party to the final Dest
-    return saveTransaction({
-      type: "Transfer",
-      itemName: obj.itemName,
-      qty: obj.qty,
-      sourceType: "Party",
-      sourceLocation: obj.supplier,
-      destType: obj.destType,
-      destLocation: obj.destLocation,
-      remarks: "Routed from Pending Purchases"
-    });
+    if (isPartial) {
+        // If partial, create a NEW Purchase directly at the destination, bypassing the Transfer completely.
+        // Because we reduced the original purchase qty, the Party stock is already correct.
+        return saveTransaction({
+          type: "Purchase",
+          itemName: obj.itemName,
+          qty: obj.qty,
+          sourceType: "",
+          sourceLocation: "",
+          destType: obj.destType,
+          destLocation: obj.destLocation,
+          status: "Routed",
+          supplier: obj.supplier,
+          remarks: "Split Purchase (Partially Routed)"
+        });
+    } else {
+        // Full route: Use transfer as before to move from Party to Dest.
+        return saveTransaction({
+          type: "Transfer",
+          itemName: obj.itemName,
+          qty: obj.qty,
+          sourceType: "Party",
+          sourceLocation: obj.supplier,
+          destType: obj.destType,
+          destLocation: obj.destLocation,
+          remarks: "Routed from Pending Purchases"
+        });
+    }
 
   } catch(err) {
     return err.toString();
