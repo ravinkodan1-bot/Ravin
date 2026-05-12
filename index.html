@@ -195,7 +195,7 @@
       </div>
       <div class="row">
         <label>Item</label>
-        <select id="s_item" required><option value="">Select Item</option></select>
+        <select id="s_item" required onchange="populateBatchSource('s_sourceType', 's_sourceLoc', 's_item')"><option value="">Select Item</option></select>
       </div>
       <div class="row">
         <label>Quantity</label>
@@ -203,11 +203,12 @@
       </div>
       <div class="row">
         <label>Fulfill From (Source Type)</label>
-        <select id="s_sourceType" required onchange="populateDest('s_sourceType', 's_sourceLoc')">
+        <select id="s_sourceType" required onchange="populateBatchSource('s_sourceType', 's_sourceLoc', 's_item')">
           <option value="">Select</option>
           <option value="Godown">Godown</option>
           <option value="Party">Purchased Party</option>
           <option value="Transit">Transit</option>
+          <option value="CFS">CFS</option>
         </select>
       </div>
       <div class="row">
@@ -303,6 +304,7 @@
     <h3 id="editDispatchTitle">Edit Sale Order</h3>
     <form id="formEditDispatch" onsubmit="submitEditDispatch(event)">
       <input type="hidden" id="e_txnId">
+      <input type="hidden" id="e_itemName">
 
       <div class="row">
         <label>Quantity</label>
@@ -310,11 +312,12 @@
       </div>
       <div class="row">
         <label>New Source Type</label>
-        <select id="e_sourceType" required onchange="populateDest('e_sourceType', 'e_sourceLoc')">
+        <select id="e_sourceType" required onchange="populateBatchSource('e_sourceType', 'e_sourceLoc', 'e_itemName')">
           <option value="">Select</option>
           <option value="Godown">Godown</option>
-          <option value="Party">Purchased Party</option>
+          <option value="Purchased Party">Purchased Party</option>
           <option value="Transit">Transit</option>
+          <option value="CFS">CFS</option>
         </select>
       </div>
       <div class="row">
@@ -452,6 +455,7 @@
 
 <script>
 let master = { items: [], godowns: [], parties: [] };
+let currentInventory = [];
 
 function showMsg(id, isSuccess, text) {
   const el = document.getElementById(id);
@@ -515,6 +519,41 @@ function populateDest(typeSelectId, locSelectId) {
   document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
 }
 
+function populateBatchSource(typeSelectId, locSelectId, itemSelectId) {
+  const type = document.getElementById(typeSelectId).value;
+  const itemName = document.getElementById(itemSelectId).value;
+  const locSelect = document.getElementById(locSelectId);
+
+  if (!type || !itemName || !currentInventory || currentInventory.length === 0) {
+    locSelect.innerHTML = '<option value="">Select Source First</option>';
+    return;
+  }
+
+  // Actually map internal UI types to locType from inventory
+  let inventoryLocType = type;
+  if (type === "Purchased Party") inventoryLocType = "Party";
+
+  let validBatches = currentInventory.filter(i => i.locType === inventoryLocType && i.itemName === itemName && i.saleable > 0);
+
+  if (validBatches.length === 0) {
+    locSelect.innerHTML = '<option value="">No stock available</option>';
+    return;
+  }
+
+  let opts = '<option value="">Select Batch/Location</option>';
+  validBatches.forEach(b => {
+    let details = [];
+    if (b.supplier) details.push(`Sup:${b.supplier}`);
+    if (b.vehicleNo) details.push(`Veh:${b.vehicleNo}`);
+    let suffix = details.length > 0 ? ` [${details.join(', ')}]` : '';
+    let display = `${b.locName}${suffix} (Qty: ${fmtQty(b.saleable)})`;
+    let valStr = JSON.stringify({ locName: b.locName, supplier: b.supplier, vehicleNo: b.vehicleNo, invoiceNo: b.invoiceNo });
+    opts += `<option value='${valStr}'>${display}</option>`;
+  });
+
+  locSelect.innerHTML = opts;
+}
+
 function submitForm(e, type) {
   e.preventDefault();
   const btn = e.target.querySelector('button');
@@ -555,7 +594,18 @@ function submitForm(e, type) {
   } else if(type==='SaleOrder') {
     obj.orderRef = document.getElementById('s_orderRef').value;
     obj.sourceType = document.getElementById('s_sourceType').value;
-    obj.sourceLocation = document.getElementById('s_sourceLoc').value;
+    if (obj.sourceType === "Purchased Party") obj.sourceType = "Party";
+
+    try {
+      let srcLocObj = JSON.parse(document.getElementById('s_sourceLoc').value);
+      obj.sourceLocation = srcLocObj.locName;
+      obj.supplier = srcLocObj.supplier;
+      obj.driverName = srcLocObj.vehicleNo;
+      obj.invoiceNo = srcLocObj.invoiceNo;
+    } catch(err) {
+      obj.sourceLocation = document.getElementById('s_sourceLoc').value;
+    }
+
     obj.destType = "Buyer";
     obj.destLocation = document.getElementById('s_destLoc').value;
     obj.status = "PendingSale";
@@ -597,6 +647,7 @@ function loadReports() {
       alert("Error: " + res.error);
       return;
     }
+    currentInventory = res.detailed || [];
     try {
       renderReports(res);
     } catch(e) {
@@ -758,7 +809,7 @@ function renderReports(data) {
         <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
         <td>
           <button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button>
-          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${fmtQty(p.Qty)}', '${p.SourceType}', '${p.SourceLocation}')">Edit</button>
+          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${fmtQty(p.Qty)}', '${p.SourceType}', '${p.SourceLocation}', '${p.ItemName}')">Edit</button>
         </td>
       </tr>
     `;
@@ -766,21 +817,20 @@ function renderReports(data) {
   document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
 }
 
-function openEditDispatchModal(txnId, orderRef, qty, sourceType, sourceLoc) {
+function openEditDispatchModal(txnId, orderRef, qty, sourceType, sourceLoc, itemName) {
   document.getElementById('formEditDispatch').reset();
   document.getElementById('e_txnId').value = txnId;
+  document.getElementById('e_itemName').value = itemName;
   document.getElementById('editDispatchTitle').innerText = "Edit Sale Order: " + orderRef;
   document.getElementById('e_qty').value = qty;
 
   // Try to set source type and populate locations
   const typeSelect = document.getElementById('e_sourceType');
-  typeSelect.value = sourceType;
-  populateDest('e_sourceType', 'e_sourceLoc');
+  typeSelect.value = sourceType === 'Party' ? 'Purchased Party' : sourceType;
+  populateBatchSource('e_sourceType', 'e_sourceLoc', 'e_itemName');
 
-  // Set location slightly delayed to allow populate to finish
-  setTimeout(() => {
-    document.getElementById('e_sourceLoc').value = sourceLoc;
-  }, 100);
+  // We don't try to select exactly the sourceLoc because it's now a JSON string containing the batch info.
+  // The user will need to re-select the correct batch since they clicked edit.
 
   document.getElementById('editDispatchModal').style.display = 'flex';
 }
@@ -794,9 +844,20 @@ function submitEditDispatch(e) {
   let obj = {
     txnId: document.getElementById('e_txnId').value,
     qty: document.getElementById('e_qty').value,
-    sourceType: document.getElementById('e_sourceType').value,
-    sourceLocation: document.getElementById('e_sourceLoc').value
+    sourceType: document.getElementById('e_sourceType').value
   };
+
+  if (obj.sourceType === "Purchased Party") obj.sourceType = "Party";
+
+  try {
+    let srcLocObj = JSON.parse(document.getElementById('e_sourceLoc').value);
+    obj.sourceLocation = srcLocObj.locName;
+    obj.supplier = srcLocObj.supplier;
+    obj.driverName = srcLocObj.vehicleNo;
+    obj.invoiceNo = srcLocObj.invoiceNo;
+  } catch(err) {
+    obj.sourceLocation = document.getElementById('e_sourceLoc').value;
+  }
 
   google.script.run
   .withFailureHandler(err => {

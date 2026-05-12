@@ -138,6 +138,9 @@ function editSaleOrder(obj) {
     const qtyIndex = headers.indexOf("qty");
     const typeIndex = headers.indexOf("sourcetype");
     const locIndex = headers.indexOf("sourcelocation");
+    const supIndex = headers.indexOf("supplier");
+    const dNameIndex = headers.indexOf("drivername");
+    const invIndex = headers.indexOf("invoiceno");
 
     if(idIndex === -1) return "Missing TxnID column.";
 
@@ -146,6 +149,9 @@ function editSaleOrder(obj) {
         if(qtyIndex > -1) sheet.getRange(i+2, qtyIndex+1).setValue(obj.qty);
         if(typeIndex > -1) sheet.getRange(i+2, typeIndex+1).setValue(obj.sourceType);
         if(locIndex > -1) sheet.getRange(i+2, locIndex+1).setValue(obj.sourceLocation);
+        if(supIndex > -1 && obj.supplier !== undefined) sheet.getRange(i+2, supIndex+1).setValue(obj.supplier);
+        if(dNameIndex > -1 && obj.driverName !== undefined) sheet.getRange(i+2, dNameIndex+1).setValue(obj.driverName);
+        if(invIndex > -1 && obj.invoiceNo !== undefined) sheet.getRange(i+2, invIndex+1).setValue(obj.invoiceNo);
         return "Success";
       }
     }
