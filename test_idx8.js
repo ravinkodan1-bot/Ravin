@@ -1,0 +1,1 @@
+console.log("Wait, is it possible that `sheet.getRange(i+1, qtyIdx+1)` is exactly the bug because in `getDataRange()`, if the data starts at row 2, `getRange` uses absolute row numbers? No, `getDataRange` starts at row 1 if A1 is filled.");

@@ -202,7 +202,11 @@ function routePurchase(obj) {
     const sheet = ss.getSheetByName("Transactions");
     if(!sheet) return "Transactions sheet not found";
 
-    const data = sheet.getDataRange().getValues();
+    const dataRange = sheet.getDataRange();
+    const data = dataRange.getValues();
+    const startRow = dataRange.getRow();
+    const startCol = dataRange.getColumn();
+
     const headers = data[0];
     const txnIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "txnid");
     const statusIdx = headers.findIndex(h => h.toString().toLowerCase().trim() === "status");
@@ -216,22 +220,16 @@ function routePurchase(obj) {
         let originalQty = parseFloat(data[i][qtyIdx]) || 0;
         let routedQty = parseFloat(obj.qty) || 0;
 
+        // The absolute row in the spreadsheet corresponding to data[i]
+        const absoluteRow = startRow + i;
+
         if (routedQty < originalQty) {
-          // Partial Route: We don't reduce original Qty here because "Transfer" will safely deduct it.
-          // BUT since the original row needs to stay 'PendingRoute' for the remainder,
-          // we shouldn't change the status either. The easiest and mathematically safest way is:
-          // Just let the "Transfer" transaction deduct the routedQty from Party.
-          // However, the report logic expects "PendingPurchases" to show only items with status "PendingRoute".
-          // If we leave it PendingRoute but transfer some out, it will still show the original Qty in Pending Purchases, which is wrong.
-          // Correct fix: Split the purchase into two.
+          // Partial Route
           isPartial = true;
-          // IMPORTANT: we must update the sheet with the remaining quantity, so subsequent fetches are correct.
-          // Due to header being at i=0 in `data` (row 1 in sheet), the current data row is i.
-          // Since getRange starts at 1, the row in sheet is i + 1.
-          sheet.getRange(i+1, qtyIdx+1).setValue(originalQty - routedQty); // Original keeps remainder
+          sheet.getRange(absoluteRow, startCol + qtyIdx).setValue(originalQty - routedQty); // Original keeps remainder
         } else {
           // Full Route: Mark as completed/routed
-          sheet.getRange(i+1, statusIdx+1).setValue("Routed");
+          sheet.getRange(absoluteRow, startCol + statusIdx).setValue("Routed");
         }
         found = true;
         break;
