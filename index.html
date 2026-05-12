@@ -69,6 +69,7 @@
   <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
   <div class="tab" onclick="switchTab('purchase')">🛒 Purchase</div>
   <div class="tab" onclick="switchTab('pendingpurchases')">⏳ Pending Purchases</div>
+  <div class="tab" onclick="switchTab('cfs')">🏢 Active CFS</div>
   <div class="tab" onclick="switchTab('transit')">🚚 Active Transit</div>
   <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
   <div class="tab" onclick="switchTab('dispatch')">📦 Pending Dispatch</div>
@@ -86,7 +87,7 @@
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">B. State-Wise Stock</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>State</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <thead><tr><th>State</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>CFS Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
         <tbody id="stateReportTable"></tbody>
       </table>
     </div>
@@ -94,7 +95,7 @@
     <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">A. Detailed Physical vs Saleable</h3>
     <div class="table-responsive">
       <table>
-        <thead><tr><th>Location</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <thead><tr><th>Location</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>CFS Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
         <tbody id="detailedReportTable"></tbody>
       </table>
     </div>
@@ -104,6 +105,13 @@
   <div id="purchase" class="view">
     <h2>🛒 Purchase Entry (Local/Import)</h2>
     <form id="formPurchase" onsubmit="submitForm(event, 'Purchase')">
+      <div class="row">
+        <label>Purchase Type</label>
+        <select id="p_purchaseType" required>
+          <option value="Local">Local</option>
+          <option value="Import">Import</option>
+        </select>
+      </div>
       <div class="row">
         <label>Purchased From (Supplier/Party)</label>
         <select id="p_supplier" required><option value="">Select Supplier</option></select>
@@ -123,6 +131,7 @@
           <option value="Transit">Direct to Transit</option>
           <option value="Party">Hold at Supplier/Party Location</option>
           <option value="Godown">Direct to Godown</option>
+          <option value="CFS">CFS</option>
         </select>
       </div>
       <div class="row">
@@ -147,6 +156,18 @@
       <table>
         <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Supplier (Party)</th><th>Intended Dest</th><th>Action</th></tr></thead>
         <tbody id="pendingPurchasesTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACTIVE CFS -->
+  <div id="cfs" class="view">
+    <h2>🏢 Active CFS Management</h2>
+    <p style="color:#555;">These items are currently at the CFS. You can route them to Transit, Godown, or directly fulfill a Sale Order.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Item</th><th>CFS Location</th><th>Available Qty</th><th>Actions</th></tr></thead>
+        <tbody id="cfsTable"></tbody>
       </table>
     </div>
   </div>
@@ -328,6 +349,7 @@
           <option value="">Select</option>
           <option value="Godown">Godown</option>
           <option value="Transit">Transit</option>
+          <option value="CFS">CFS</option>
         </select>
       </div>
 
@@ -391,7 +413,7 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
   event.currentTarget.classList.add('active');
-  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit' || tabId === 'pendingpurchases') loadReports();
+  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit' || tabId === 'cfs' || tabId === 'pendingpurchases') loadReports();
 }
 
 function init() {
@@ -419,7 +441,9 @@ function populateDropdowns() {
   document.getElementById('ta_buyer').innerHTML = partyOpts;
 
   // Godowns for Transit modal
-  const godownOpts = '<option value="">Select Godown</option>' + master.godowns.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+  const godownOpts = '<option value="">Select Destination</option>' +
+    '<optgroup label="Transit"><option value="General Transit">General Transit</option></optgroup>' +
+    '<optgroup label="Godowns">' + master.godowns.map(g => `<option value="${g.name}">${g.name}</option>`).join('') + '</optgroup>';
   document.getElementById('ta_destGodown').innerHTML = godownOpts;
 }
 
@@ -429,6 +453,7 @@ function populateDest(typeSelectId, locSelectId) {
   if (type === 'Godown') locs = master.godowns.map(g => g.name);
   else if (type === 'Party') locs = master.parties.map(p => p.name);
   else if (type === 'Transit') locs = ["General Transit"]; // Can add Multiple Transit routes later
+  else if (type === 'CFS') locs = ["General CFS"]; // General CFS location
 
   document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
 }
@@ -451,6 +476,7 @@ function submitForm(e, type) {
   };
 
   if(type==='Purchase') {
+    obj.purchaseType = document.getElementById('p_purchaseType').value;
     obj.supplier = document.getElementById('p_supplier').value;
     obj.destType = document.getElementById('p_destType').value;
     obj.destLocation = document.getElementById('p_destLoc').value;
@@ -526,11 +552,12 @@ function renderReports(data) {
       <td>${fmtQty(d.godown)}</td>
       <td>${fmtQty(d.party)}</td>
       <td>${fmtQty(d.transit)}</td>
+      <td>${fmtQty(d.cfs)}</td>
       <td style="color:#b71c1c;">${fmtQty(d.pending)}</td>
       <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(d.saleable)}</td>
     </tr>`;
   });
-  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="7">No data available</td></tr>';
+  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="8">No data available</td></tr>';
 
   // State-Wise
   let sHtml = '';
@@ -541,11 +568,12 @@ function renderReports(data) {
       <td>${fmtQty(s.godown)}</td>
       <td>${fmtQty(s.party)}</td>
       <td>${fmtQty(s.transit)}</td>
+      <td>${fmtQty(s.cfs)}</td>
       <td style="color:#b71c1c;">${fmtQty(s.pending)}</td>
       <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(s.saleable)}</td>
     </tr>`;
   });
-  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="7">No data available</td></tr>';
+  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="8">No data available</td></tr>';
 
   // Item-Wise Cards
   let bHtml = '';
@@ -557,9 +585,10 @@ function renderReports(data) {
         <div class="card-stat">1. Godown (Physical): <span>${fmtQty(i.godown)}</span></div>
         <div class="card-stat">2. At Party (Physical): <span>${fmtQty(i.party)}</span></div>
         <div class="card-stat">3. In Transit (Physical): <span>${fmtQty(i.transit)}</span></div>
-        <div class="card-stat" style="color:#b71c1c;">4. Pending Sale: <span>${fmtQty(i.pending)}</span></div>
+        <div class="card-stat">4. In CFS (Physical): <span>${fmtQty(i.cfs)}</span></div>
+        <div class="card-stat" style="color:#b71c1c;">5. Pending Sale: <span>${fmtQty(i.pending)}</span></div>
         <hr style="border-top:1px solid #ddd; margin:8px 0;">
-        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3-4): <span>${fmtQty(i.saleable)}</span></div>
+        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3+4-5): <span>${fmtQty(i.saleable)}</span></div>
         <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Location Details</button>
         <table style="margin-top:10px; width:100%; font-size:12px;">
           ${i.details.map(det => `
@@ -595,6 +624,25 @@ function renderReports(data) {
   }
   document.getElementById('pendingPurchasesTable').innerHTML = ppHtml || '<tr><td colspan="6">No pending purchases to route.</td></tr>';
 
+  // Active CFS Table
+  let cfsHtml = '';
+  if (data.activeCFS) {
+    data.activeCFS.forEach(c => {
+      cfsHtml += `
+        <tr>
+          <td><strong>${c.itemName}</strong></td>
+          <td>${c.locName}</td>
+          <td style="color:green; font-weight:bold;">${fmtQty(c.saleable)}</td>
+          <td>
+            <button class="action-btn" onclick="openTransitAction('Transfer', '${c.itemName}', '${c.locName}', ${fmtQty(c.saleable)}, 'CFS')">Route to Godown/Transit</button>
+            <button class="action-btn" onclick="openTransitAction('SaleOrder', '${c.itemName}', '${c.locName}', ${fmtQty(c.saleable)}, 'CFS')">Sale Direct</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById('cfsTable').innerHTML = cfsHtml || '<tr><td colspan="4">No items currently in CFS.</td></tr>';
+
   // Active Transit Table
   let tHtml = '';
   data.activeTransit.forEach(t => {
@@ -604,8 +652,8 @@ function renderReports(data) {
         <td>${t.locName}</td>
         <td style="color:green; font-weight:bold;">${fmtQty(t.saleable)}</td>
         <td>
-          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)})">Receive to Godown</button>
-          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)})">Sale Direct</button>
+          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)}, 'Transit')">Receive to Godown</button>
+          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)}, 'Transit')">Sale Direct</button>
         </td>
       </tr>
     `;
@@ -790,8 +838,11 @@ function submitRoutePurchase(e) {
   }).routePurchase(obj);
 }
 
-// Transit Modal Functions
-function openTransitAction(actionType, itemName, locName, maxQty) {
+// Transit/CFS Modal Functions
+let currentSourceTypeForModal = "Transit"; // Track whether modal is for Transit or CFS
+
+function openTransitAction(actionType, itemName, locName, maxQty, srcType = "Transit") {
+  currentSourceTypeForModal = srcType;
   document.getElementById('ta_type').value = actionType;
   document.getElementById('ta_item').value = itemName;
   document.getElementById('ta_sourceLoc').value = locName;
@@ -803,12 +854,17 @@ function openTransitAction(actionType, itemName, locName, maxQty) {
   document.getElementById('ta_sale_wrap').style.display = (actionType === 'SaleOrder') ? 'block' : 'none';
 
   if(actionType === 'Transfer') {
-    document.getElementById('modalTitle').innerText = `Receive ${itemName} to Godown`;
+    document.getElementById('modalTitle').innerText = `Route ${itemName} from ${srcType} to Godown/Transit`;
     document.getElementById('ta_destGodown').required = true;
     document.getElementById('ta_orderRef').required = false;
     document.getElementById('ta_buyer').required = false;
+
+    // Change label based on source
+    let lbl = document.getElementById('ta_godown_wrap').querySelector('label');
+    if(lbl) lbl.innerText = srcType === "CFS" ? "Receive to Godown/Transit" : "Receive to Godown";
+
   } else {
-    document.getElementById('modalTitle').innerText = `Sell ${itemName} from Transit`;
+    document.getElementById('modalTitle').innerText = `Sell ${itemName} from ${srcType}`;
     document.getElementById('ta_destGodown').required = false;
     document.getElementById('ta_orderRef').required = true;
     document.getElementById('ta_buyer').required = true;
@@ -833,7 +889,7 @@ function submitTransitAction(e) {
   const maxQty = parseFloat(document.getElementById('ta_maxQty').innerText);
 
   if(qtyInput > maxQty) {
-    showMsg('msg_Modal', false, "Cannot move more than available qty in transit!");
+    showMsg('msg_Modal', false, `Cannot move more than available qty in ${currentSourceTypeForModal}!`);
     btn.disabled = false; btn.innerText = "Confirm"; return;
   }
 
@@ -841,13 +897,19 @@ function submitTransitAction(e) {
     type: actionType,
     itemName: document.getElementById('ta_item').value,
     qty: qtyInput,
-    sourceType: "Transit",
+    sourceType: currentSourceTypeForModal,
     sourceLocation: document.getElementById('ta_sourceLoc').value,
   };
 
   if(actionType === "Transfer") {
-    obj.destType = "Godown";
-    obj.destLocation = document.getElementById('ta_destGodown').value;
+    // Determine destination type based on what user selected in the dropdown
+    let destVal = document.getElementById('ta_destGodown').value;
+    if(destVal === "General Transit") {
+      obj.destType = "Transit";
+    } else {
+      obj.destType = "Godown";
+    }
+    obj.destLocation = destVal;
   } else {
     obj.destType = "Buyer";
     obj.destLocation = document.getElementById('ta_buyer').value;

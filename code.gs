@@ -78,20 +78,27 @@ function saveTransaction(obj) {
       status = "PendingRoute";
     }
 
+    let remarksObj = {
+        intendedDestType: obj.destType,
+        intendedDestLoc: obj.destLocation,
+        remarks: obj.remarks || ""
+    };
+    if (obj.purchaseType) remarksObj.purchaseType = obj.purchaseType;
+
     sheet.appendRow([
       new Date(),
       txnId,
       obj.type, // Opening, Purchase, Transfer, SaleOrder, Dispatch
       obj.itemName,
       obj.qty,
-      obj.sourceType || "", // Godown, Party, Transit
+      obj.sourceType || "", // Godown, Party, Transit, CFS
       obj.sourceLocation || "",
-      destType,   // Godown, Transit, Buyer, Party
+      destType,   // Godown, Transit, Buyer, Party, CFS
       destLoc,
       status, // Completed, PendingSale, PendingRoute
       obj.supplier || "",
       obj.orderRef || "",
-      JSON.stringify({ intendedDestType: obj.destType, intendedDestLoc: obj.destLocation, remarks: obj.remarks || "" }), // Store intended destination in remarks
+      JSON.stringify(remarksObj), // Store intended destination and purchaseType in remarks
       "", "", "", "" // Empty cells for Driver/Invoice later
     ]);
 
@@ -278,7 +285,7 @@ function getReportsData() {
           itemName: itemName,
           locType: locType, locName: locName,
           state: godownStates[locName] || '-',
-          physical: 0, godown: 0, party: 0, transit: 0, saleable: 0, pending: 0
+          physical: 0, godown: 0, party: 0, transit: 0, cfs: 0, saleable: 0, pending: 0
         };
         inventory[key].physical += pQty;
         inventory[key].saleable += sQty;
@@ -287,6 +294,7 @@ function getReportsData() {
         if(locType === "Godown") inventory[key].godown += pQty;
         else if(locType === "Party") inventory[key].party += pQty;
         else if(locType === "Transit") inventory[key].transit += pQty;
+        else if(locType === "CFS") inventory[key].cfs += pQty;
       };
 
       if (type === "Opening" || type === "Purchase") {
@@ -314,13 +322,14 @@ function getReportsData() {
       let key = `${i.itemName}|${st}`;
       if(!stateWise[key]) stateWise[key] = {
         state: st, item: i.itemName,
-        physical: 0, godown: 0, party: 0, transit: 0,
+        physical: 0, godown: 0, party: 0, transit: 0, cfs: 0,
         pending: 0, saleable: 0
       };
       stateWise[key].physical += i.physical;
       stateWise[key].godown += i.godown;
       stateWise[key].party += i.party;
       stateWise[key].transit += i.transit;
+      stateWise[key].cfs += i.cfs;
       stateWise[key].pending += i.pending;
       stateWise[key].saleable += i.saleable;
     });
@@ -328,18 +337,20 @@ function getReportsData() {
     let itemWise = {};
     rawInv.forEach(i => {
       let key = `${i.itemName}`;
-      if(!itemWise[key]) itemWise[key] = { item: i.itemName, physical: 0, godown: 0, transit: 0, party: 0, pending: 0, saleable: 0, details: [] };
+      if(!itemWise[key]) itemWise[key] = { item: i.itemName, physical: 0, godown: 0, transit: 0, cfs: 0, party: 0, pending: 0, saleable: 0, details: [] };
       itemWise[key].physical += i.physical;
       itemWise[key].pending += i.pending;
       itemWise[key].saleable += i.saleable;
       if(i.locType === "Transit") itemWise[key].transit += i.physical;
       else if(i.locType === "Party") itemWise[key].party += i.physical;
       else if(i.locType === "Godown") itemWise[key].godown += i.physical;
+      else if(i.locType === "CFS") itemWise[key].cfs += i.physical;
 
       itemWise[key].details.push(i);
     });
 
     let activeTransit = rawInv.filter(i => i.locType === "Transit" && i.saleable > 0);
+    let activeCFS = rawInv.filter(i => i.locType === "CFS" && i.saleable > 0);
 
     let mappedData = data.map(r => {
       const t = r[h["type"]] ? r[h["type"]].toString().trim() : "";
@@ -384,6 +395,7 @@ function getReportsData() {
       stateWise: Object.values(stateWise),
       itemWise: Object.values(itemWise),
       activeTransit: activeTransit,
+      activeCFS: activeCFS,
       pendingSales: pendingSales,
       pendingPurchases: pendingPurchases
     };
