@@ -73,6 +73,7 @@
   <div class="tab" onclick="switchTab('transit')">🚚 Active Transit</div>
   <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
   <div class="tab" onclick="switchTab('dispatch')">📦 Pending Dispatch</div>
+  <div class="tab" onclick="switchTab('internaltransfer')">🔄 Internal Transfer</div>
   <div class="tab" onclick="switchTab('opening')">📦 Opening Stock</div>
 </div>
 
@@ -233,6 +234,36 @@
       </table>
     </div>
     <div id="msg_Dispatch" class="msg"></div>
+  </div>
+
+  <!-- INTERNAL TRANSFER -->
+  <div id="internaltransfer" class="view">
+    <h2>🔄 Internal Transfer</h2>
+    <p style="color:#555;">Move stock from one Godown to another. Stock will be placed in Transit until received.</p>
+    <form id="formInternalTransfer" onsubmit="submitForm(event, 'InternalTransfer')">
+      <div class="row">
+        <label>Item</label>
+        <select id="it_item" required><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="it_qty" step="0.01" required>
+      </div>
+      <div class="row">
+        <label>Source Godown</label>
+        <select id="it_sourceLoc" required><option value="">Select Godown</option></select>
+      </div>
+      <div class="row">
+        <label>Destination Godown</label>
+        <select id="it_destLoc" required><option value="">Select Godown</option></select>
+      </div>
+      <div class="row">
+        <label>Remarks</label>
+        <input type="text" id="it_remarks" placeholder="Optional notes (e.g. driver details)">
+      </div>
+      <button type="submit" class="btn">Initiate Transfer</button>
+      <div id="msg_InternalTransfer" class="msg"></div>
+    </form>
   </div>
 
   <!-- OPENING STOCK -->
@@ -433,7 +464,7 @@ function init() {
 function populateDropdowns() {
   // Items
   const itemOpts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-  ['p_item', 's_item', 'o_item'].forEach(id => document.getElementById(id).innerHTML = itemOpts);
+  ['p_item', 's_item', 'o_item', 'it_item'].forEach(id => document.getElementById(id).innerHTML = itemOpts);
 
   // Parties / Suppliers / Buyers
   const partyOpts = '<option value="">Select</option>' + master.parties.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
@@ -469,6 +500,7 @@ function submitForm(e, type) {
   if(type==='Purchase') prefix='p_';
   if(type==='SaleOrder') prefix='s_';
   if(type==='Opening') prefix='o_';
+  if(type==='InternalTransfer') prefix='it_';
 
   let obj = {
     type: type,
@@ -476,7 +508,20 @@ function submitForm(e, type) {
     qty: document.getElementById(prefix+'qty').value,
   };
 
-  if(type==='Purchase') {
+  if(type==='InternalTransfer') {
+    // Treat Internal Transfer as a "Transfer" transaction where source is Godown and dest is Transit
+    obj.type = "Transfer";
+    obj.sourceType = "Godown";
+    obj.sourceLocation = document.getElementById('it_sourceLoc').value;
+    obj.destType = "Transit";
+    // We store the vehicle/carrier or a generic name for the transit location.
+    obj.destLocation = "Internal Transit";
+    obj.remarks = JSON.stringify({
+      intendedDestType: "Godown",
+      intendedDestLoc: document.getElementById('it_destLoc').value,
+      remarks: document.getElementById('it_remarks').value || "Internal Transfer"
+    });
+  } else if(type==='Purchase') {
     obj.purchaseType = document.getElementById('p_purchaseType').value;
     obj.supplier = document.getElementById('p_supplier').value;
     obj.destType = document.getElementById('p_destType').value;
@@ -494,14 +539,17 @@ function submitForm(e, type) {
     obj.destLocation = document.getElementById('o_destLoc').value;
   }
 
+  let displayType = type;
+  if(type === 'InternalTransfer') displayType = 'InternalTransfer'; // For msg_InternalTransfer id
+
   google.script.run.withSuccessHandler(res => {
     btn.disabled = false;
     btn.innerText = "Submit";
     if(res === "Success") {
-      showMsg('msg_'+type, true, "Entry saved successfully!");
+      showMsg('msg_'+displayType, true, "Entry saved successfully!");
       e.target.reset();
     } else {
-      showMsg('msg_'+type, false, res);
+      showMsg('msg_'+displayType, false, res);
     }
   }).saveTransaction(obj);
 }

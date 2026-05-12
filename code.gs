@@ -225,6 +225,9 @@ function routePurchase(obj) {
           // If we leave it PendingRoute but transfer some out, it will still show the original Qty in Pending Purchases, which is wrong.
           // Correct fix: Split the purchase into two.
           isPartial = true;
+          // IMPORTANT: we must update the sheet with the remaining quantity, so subsequent fetches are correct.
+          // Due to header being at i=0 in `data` (row 1 in sheet), the current data row is i.
+          // Since getRange starts at 1, the row in sheet is i + 1.
           sheet.getRange(i+1, qtyIdx+1).setValue(originalQty - routedQty); // Original keeps remainder
         } else {
           // Full Route: Mark as completed/routed
