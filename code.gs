@@ -152,6 +152,8 @@ function editSaleOrder(obj) {
         if(supIndex > -1 && obj.supplier !== undefined) sheet.getRange(i+2, supIndex+1).setValue(obj.supplier);
         if(dNameIndex > -1 && obj.driverName !== undefined) sheet.getRange(i+2, dNameIndex+1).setValue(obj.driverName);
         if(invIndex > -1 && obj.invoiceNo !== undefined) sheet.getRange(i+2, invIndex+1).setValue(obj.invoiceNo);
+
+        SpreadsheetApp.flush();
         return "Success";
       }
     }
