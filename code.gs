@@ -146,12 +146,55 @@ function editSaleOrder(obj) {
 
     for(let i=0; i<data.length; i++){
       if(data[i][idIndex] === obj.txnId){
-        if(qtyIndex > -1) sheet.getRange(i+2, qtyIndex+1).setValue(obj.qty);
+        let oldQty = 0;
+        if(qtyIndex > -1) {
+          oldQty = parseFloat(data[i][qtyIndex]) || 0;
+          sheet.getRange(i+2, qtyIndex+1).setValue(obj.qty);
+        }
+
         if(typeIndex > -1) sheet.getRange(i+2, typeIndex+1).setValue(obj.sourceType);
         if(locIndex > -1) sheet.getRange(i+2, locIndex+1).setValue(obj.sourceLocation);
         if(supIndex > -1 && obj.supplier !== undefined) sheet.getRange(i+2, supIndex+1).setValue(obj.supplier);
         if(dNameIndex > -1 && obj.driverName !== undefined) sheet.getRange(i+2, dNameIndex+1).setValue(obj.driverName);
         if(invIndex > -1 && obj.invoiceNo !== undefined) sheet.getRange(i+2, invIndex+1).setValue(obj.invoiceNo);
+
+        // If splitPending is true and new qty is less than old qty, create a new pending sale row for the remainder
+        let newQty = parseFloat(obj.qty) || 0;
+        if (obj.splitPending && newQty < oldQty) {
+           let remainder = oldQty - newQty;
+
+           let itemNameIdx = headers.indexOf("itemname");
+           let destTypeIdx = headers.indexOf("desttype");
+           let destLocIdx = headers.indexOf("destlocation");
+           let orderRefIdx = headers.indexOf("orderref");
+
+           let itemName = itemNameIdx > -1 ? data[i][itemNameIdx] : "";
+           let destType = destTypeIdx > -1 ? data[i][destTypeIdx] : "";
+           let destLoc = destLocIdx > -1 ? data[i][destLocIdx] : "";
+           let orderRef = orderRefIdx > -1 ? data[i][orderRefIdx] : "";
+
+           // Extract existing source details from original row to keep the remainder at the original source
+           // Or we could leave it blank so user selects source later. But since it was already a Pending Sale from a source,
+           // keeping the original source is safest.
+           let oldSourceType = typeIndex > -1 ? data[i][typeIndex] : "";
+           let oldSourceLoc = locIndex > -1 ? data[i][locIndex] : "";
+           let oldSupplier = supIndex > -1 ? data[i][supIndex] : "";
+
+           // Create a new transaction explicitly
+           saveTransaction({
+             type: "SaleOrder",
+             itemName: itemName,
+             qty: remainder,
+             sourceType: oldSourceType,
+             sourceLocation: oldSourceLoc,
+             supplier: oldSupplier,
+             destType: destType,
+             destLocation: destLoc,
+             orderRef: orderRef + "-SPLIT",
+             status: "PendingSale",
+             remarks: "Split from modified sale order"
+           });
+        }
 
         SpreadsheetApp.flush();
         return "Success";

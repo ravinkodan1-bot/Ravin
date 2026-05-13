@@ -305,6 +305,7 @@
     <form id="formEditDispatch" onsubmit="submitEditDispatch(event)">
       <input type="hidden" id="e_txnId">
       <input type="hidden" id="e_itemName">
+      <input type="hidden" id="e_originalQty">
 
       <div class="row">
         <label>Quantity</label>
@@ -821,6 +822,7 @@ function openEditDispatchModal(txnId, orderRef, qty, sourceType, sourceLoc, item
   document.getElementById('formEditDispatch').reset();
   document.getElementById('e_txnId').value = txnId;
   document.getElementById('e_itemName').value = itemName;
+  document.getElementById('e_originalQty').value = qty;
   document.getElementById('editDispatchTitle').innerText = "Edit Sale Order: " + orderRef;
   document.getElementById('e_qty').value = qty;
 
@@ -841,10 +843,22 @@ function submitEditDispatch(e) {
   btn.disabled = true;
   btn.innerText = "Saving...";
 
+  let newQty = parseFloat(document.getElementById('e_qty').value);
+  let oldQty = parseFloat(document.getElementById('e_originalQty').value);
+
+  let splitPending = false;
+  if (newQty < oldQty) {
+    let remainder = oldQty - newQty;
+    if (confirm(`You are reducing the quantity from ${oldQty} to ${newQty}. Do you want to keep the remaining ${remainder} as a Pending Sale Order? (Click OK to keep remaining, Cancel to completely close the rest)`)) {
+      splitPending = true;
+    }
+  }
+
   let obj = {
     txnId: document.getElementById('e_txnId').value,
-    qty: document.getElementById('e_qty').value,
-    sourceType: document.getElementById('e_sourceType').value
+    qty: newQty,
+    sourceType: document.getElementById('e_sourceType').value,
+    splitPending: splitPending
   };
 
   if (obj.sourceType === "Purchased Party") obj.sourceType = "Party";
