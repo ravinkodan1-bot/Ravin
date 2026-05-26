@@ -4,326 +4,997 @@
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; width: 100%; min-height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f7; color: #333; }
 
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+    .navbar { background: #0b5394; color: white; padding: 15px; text-align: center; font-size: 22px; font-weight: bold; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .tabs { display: flex; overflow-x: auto; background: white; padding: 10px; border-bottom: 2px solid #ddd; position: sticky; top: 54px; z-index: 99; white-space: nowrap; }
+    .tab { padding: 10px 20px; margin-right: 10px; background: #f0f5fb; border-radius: 8px; cursor: pointer; font-weight: bold; color: #555; transition: 0.3s; }
+    .tab.active { background: #0b5394; color: white; }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: white;
-}
+    .container { max-width: 1000px; margin: 20px auto; padding: 0 15px; }
+    .view { display: none; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .view.active { display: block; }
 
-.box {
-  width: 100%;
-  min-height: 100vh;
-  background: white;
-  padding: 20px 0px 50px;
-}
+    h2 { color: #0b5394; margin-top: 0; border-bottom: 2px solid #e0eaf5; padding-bottom: 10px; }
+    .row { margin-bottom: 15px; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; background: #fff; }
+    input:focus, select:focus, textarea:focus { border-color: #0b5394; outline: none; box-shadow: 0 0 0 3px rgba(11,83,148,0.1); }
+    button.btn { width: 100%; background: #0b5394; color: white; border: none; padding: 15px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    button.btn:active { background: #073763; transform: scale(0.98); }
+    button.btn:disabled { background: #999; cursor: not-allowed; }
+    button.action-btn { background: #f0f5fb; color: #0b5394; border: 1px solid #0b5394; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight:bold; margin: 2px; }
+    button.action-btn:hover { background: #0b5394; color: white; }
 
-@media (min-width: 640px) {
-  body {
-    background: #eef2f7;
-    padding: 24px;
-    display: flex;
-    justify-content: center;
-  }
-  .box {
-    max-width: 640px;
-    min-height: unset;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    padding: 28px 28px 40px;
-  }
-}
+    .table-responsive { overflow-x: auto; margin-top: 15px; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #f0f5fb; color: #0b5394; }
 
-h2 {
-  text-align: center;
-  color: #0b5394;
-  margin: 0 0 24px 0;
-  font-size: 26px;
-  font-weight: 800;
-  padding: 0 10px;
-}
+    .msg { margin-top: 15px; padding: 10px; border-radius: 8px; display: none; font-weight: bold; text-align: center; }
+    .msg.success { background: #d4edda; color: #155724; display: block; }
+    .msg.error { background: #f8d7da; color: #721c24; display: block; }
 
-.section-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0b5394;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 22px 0 10px;
-  padding: 0 10px 7px;
-  border-bottom: 2px solid #e0eaf5;
-}
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .card-title { font-size: 18px; font-weight: bold; color: #0b5394; margin-bottom: 10px; }
+    .card-stat { font-size: 14px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+    .card-stat span { font-weight: bold; }
 
-.row {
-  margin-bottom: 14px;
-  padding: 0 10px;
-}
+    .details-row { display: none; background: #fafafa; }
+    .details-row.open { display: table-row; }
+    .expand-btn { cursor: pointer; color: #0b5394; text-decoration: underline; background: none; border: none; font-size: 14px; padding: 0; }
 
-label {
-  font-weight: 700;
-  display: block;
-  margin-bottom: 7px;
-  font-size: 15px;
-  color: #222;
-}
+    #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 999; display: flex; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; color: #0b5394; flex-direction: column; }
+    .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #0b5394; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
 
-input:not([readonly]),
-textarea {
-  width: 100%;
-  padding: 16px 12px;
-  border: 2px solid #d0d8e4;
-  border-radius: 10px;
-  font-size: 17px;
-  outline: none;
-  background: #fff;
-  color: #111;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  -webkit-appearance: none;
-  appearance: none;
-}
+    /* Modal for actions */
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+    .modal-content { background:white; padding:25px; border-radius:12px; width:90%; max-width:400px; }
 
-input:not([readonly]):focus,
-textarea:focus {
-  border-color: #0b5394;
-  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
-}
-
-input[readonly] {
-  width: 100%;
-  padding: 13px 12px;
-  border: 1.5px solid #e0e6ef;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #f0f5fb;
-  color: #555;
-  outline: none;
-}
-
-textarea {
-  min-height: 100px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.btn-wrap {
-  padding: 0 10px;
-}
-
-button {
-  width: 100%;
-  background: #0b5394;
-  color: white;
-  border: none;
-  padding: 18px;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: 800;
-  cursor: pointer;
-  margin-top: 12px;
-  -webkit-appearance: none;
-  transition: background 0.2s, transform 0.1s;
-}
-
-button:active {
-  transform: scale(0.97);
-  background: #073763;
-}
-
-button:disabled {
-  background: #7fa8cc;
-}
-
-.msg-box {
-  margin: 16px 10px 0;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-  padding: 14px;
-  border-radius: 12px;
-  display: none;
-}
-
-.msg-success {
-  color: #1a7a1a;
-  background: #e6f9e6;
-  border: 1.5px solid #b2e0b2;
-}
-
-.msg-error {
-  color: #b71c1c;
-  background: #fdecea;
-  border: 1.5px solid #f5c6c6;
-}
-
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-
 <body>
-<div class="box">
 
-  <h2>🚚 Transit Entry Form</h2>
+<div id="loader">
+  <div class="spinner"></div>
+  <div>Loading Data...</div>
+</div>
 
-  <form id="myForm" autocomplete="off">
+<div class="navbar">Yashika Petrochem</div>
 
-    <div class="section-title">From Party</div>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="switchTab('purchase')">🛒 Purchase</div>
+  <div class="tab" onclick="switchTab('pendingpurchases')">⏳ Pending Purchases</div>
+  <div class="tab" onclick="switchTab('cfs')">🏢 Active CFS</div>
+  <div class="tab" onclick="switchTab('transit')">🚚 Active Transit</div>
+  <div class="tab" onclick="switchTab('sale')">🧾 Sale Order</div>
+  <div class="tab" onclick="switchTab('dispatch')">📦 Pending Dispatch</div>
+  <div class="tab" onclick="switchTab('internaltransfer')">🔄 Internal Transfer</div>
+  <div class="tab" onclick="switchTab('opening')">📦 Opening Stock</div>
+</div>
 
-    <div class="row">
-      <label>Party Name / फ्रॉम पार्टी</label>
-      <input list="fromPartyList" id="fromParty" placeholder="Select or type party name..." required>
-      <datalist id="fromPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="fromPartyCode" readonly placeholder="Auto-filled">
-    </div>
+<div class="container">
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="view active">
+    <h2>Reports Dashboard <button onclick="loadReports()" style="float:right; font-size:14px; padding:5px 10px;">Refresh</button></h2>
 
-    <div class="section-title">To Party</div>
+    <h3 style="color:#333; border-bottom:1px solid #ccc;">C. Total Item Stock Summary</h3>
+    <div class="card-grid" id="itemReportCards"></div>
 
-    <div class="row">
-      <label>Party Name / टू पार्टी</label>
-      <input list="toPartyList" id="toParty" placeholder="Select or type party name..." required>
-      <datalist id="toPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="toPartyCode" readonly placeholder="Auto-filled">
-    </div>
-
-    <div class="section-title">Brand</div>
-
-    <div class="row">
-      <label>Brand Name / ब्रांड</label>
-      <input list="brandList" id="brandName" placeholder="Select or type brand..." required>
-      <datalist id="brandList"></datalist>
-    </div>
-    <div class="row">
-      <label>Brand Code</label>
-      <input type="text" id="brandCode" readonly placeholder="Auto-filled">
+    <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">B. State-Wise Stock</h3>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>State</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>CFS Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <tbody id="stateReportTable"></tbody>
+      </table>
     </div>
 
-    <div class="section-title">Details</div>
-
-    <div class="row">
-      <label>Quantity / मात्रा</label>
-      <input type="number" id="qty" placeholder="Enter quantity" inputmode="numeric" required>
+    <h3 style="color:#333; border-bottom:1px solid #ccc; margin-top:30px;">A. Detailed Physical vs Saleable</h3>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Location</th><th>Item</th><th>Godown Qty</th><th>Party Qty</th><th>Transit Qty</th><th>CFS Qty</th><th>Pending Sale</th><th>Saleable Qty</th></tr></thead>
+        <tbody id="detailedReportTable"></tbody>
+      </table>
     </div>
-    <div class="row">
-      <label>Vehicle No / गाड़ी नंबर</label>
-      <input type="text" id="vehicleNo" placeholder="E.G. DL01AB1234" style="text-transform:uppercase">
+  </div>
+
+  <!-- PURCHASE ENTRY -->
+  <div id="purchase" class="view">
+    <h2>🛒 Purchase Entry (Local/Import)</h2>
+    <form id="formPurchase" onsubmit="submitForm(event, 'Purchase')">
+      <div class="row">
+        <label>Purchase Type</label>
+        <select id="p_purchaseType" required>
+          <option value="Local">Local</option>
+          <option value="Import">Import</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Purchased From (Supplier/Party)</label>
+        <select id="p_supplier" required><option value="">Select Supplier</option></select>
+      </div>
+      <div class="row">
+        <label>Item</label>
+        <select id="p_item" required><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="p_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Destination (Where is it going?)</label>
+        <select id="p_destType" required onchange="populateDest('p_destType', 'p_destLoc')">
+          <option value="">Select</option>
+          <option value="Transit">Direct to Transit</option>
+          <option value="Party">Hold at Supplier/Party Location</option>
+          <option value="Godown">Direct to Godown</option>
+          <option value="CFS">CFS</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Destination Name</label>
+        <select id="p_destLoc" required><option value="">Select</option></select>
+      </div>
+      <div class="row">
+        <label>Remarks / PO Number</label>
+        <input type="text" id="p_remarks" placeholder="Optional PO or notes">
+      </div>
+      <button type="submit" class="btn">Save Purchase</button>
+      <div id="msg_Purchase" class="msg"></div>
+    </form>
+  </div>
+
+  <!-- ACTIVE TRANSIT -->
+  <!-- PENDING PURCHASES -->
+  <div id="pendingpurchases" class="view">
+    <h2>⏳ Pending Purchases</h2>
+    <p style="color:#555;">These purchases have been recorded at the Supplier's location but have not yet been routed to a Godown or Transit.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Supplier (Party)</th><th>Intended Dest</th><th>Action</th></tr></thead>
+        <tbody id="pendingPurchasesTable"></tbody>
+      </table>
     </div>
-    <div class="row">
-      <label>Remarks / टिप्पणी</label>
-      <textarea id="remarks" placeholder="Optional notes..."></textarea>
+  </div>
+
+  <!-- ACTIVE CFS -->
+  <div id="cfs" class="view">
+    <h2>🏢 Active CFS Management</h2>
+    <p style="color:#555;">These items are currently at the CFS. You can route them to Transit, Godown, or directly fulfill a Sale Order.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Item</th><th>CFS Location</th><th>Available Qty</th><th>Actions</th></tr></thead>
+        <tbody id="cfsTable"></tbody>
+      </table>
     </div>
+  </div>
 
-    <div class="btn-wrap">
-      <button type="submit" id="submitBtn">Submit / जमा करें</button>
+  <div id="transit" class="view">
+    <h2>🚚 Active Transit Management</h2>
+    <p style="color:#555;">These items are currently on the move. You can receive them into a Godown, or fulfill a Sale Order directly from Transit.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Item</th><th>Transit Location</th><th>Available Qty</th><th>Actions</th></tr></thead>
+        <tbody id="transitTable"></tbody>
+      </table>
     </div>
+  </div>
 
-  </form>
+  <!-- SALE ORDER -->
+  <div id="sale" class="view">
+    <h2>🧾 Create Sale Order</h2>
+    <p style="color:#555;">This will reserve stock. Stock will not leave physical inventory until Dispatched.</p>
+    <form id="formSaleOrder" onsubmit="submitForm(event, 'SaleOrder')">
+      <div class="row">
+        <label>Order Ref / Invoice No</label>
+        <input type="text" id="s_orderRef" required placeholder="e.g., SO-1001">
+      </div>
+      <div class="row">
+        <label>Item</label>
+        <select id="s_item" required><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="s_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Fulfill From (Source Type)</label>
+        <select id="s_sourceType" required onchange="populateDest('s_sourceType', 's_sourceLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Purchased Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Source Name</label>
+        <select id="s_sourceLoc" required><option value="">Select Source</option></select>
+      </div>
+      <div class="row">
+        <label>Buyer / Customer</label>
+        <select id="s_destLoc" required><option value="">Select Buyer</option></select>
+      </div>
+      <button type="submit" class="btn">Create Sale Order</button>
+      <div id="msg_SaleOrder" class="msg"></div>
+    </form>
+  </div>
 
-  <div class="msg-box" id="msg"></div>
+  <!-- DISPATCH -->
+  <div id="dispatch" class="view">
+    <h2>📦 Pending Dispatches</h2>
+    <p style="color:#555;">Mark items as Dispatched when they physically leave your possession.</p>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Date</th><th>Order Ref</th><th>Item</th><th>Qty</th><th>Source</th><th>Buyer</th><th>Action</th></tr></thead>
+        <tbody id="dispatchTable"></tbody>
+      </table>
+    </div>
+    <div id="msg_Dispatch" class="msg"></div>
+  </div>
 
+  <!-- INTERNAL TRANSFER -->
+  <div id="internaltransfer" class="view">
+    <h2>🔄 Internal Transfer</h2>
+    <p style="color:#555;">Move stock from one Godown to another. Stock will be placed in Transit until received.</p>
+    <form id="formInternalTransfer" onsubmit="submitForm(event, 'InternalTransfer')">
+      <div class="row">
+        <label>Item</label>
+        <select id="it_item" required><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="it_qty" step="0.01" required>
+      </div>
+      <div class="row">
+        <label>Source Godown</label>
+        <select id="it_sourceLoc" required><option value="">Select Godown</option></select>
+      </div>
+      <div class="row">
+        <label>Destination Godown</label>
+        <select id="it_destLoc" required><option value="">Select Godown</option></select>
+      </div>
+      <div class="row">
+        <label>Remarks</label>
+        <input type="text" id="it_remarks" placeholder="Optional notes (e.g. driver details)">
+      </div>
+      <button type="submit" class="btn">Initiate Transfer</button>
+      <div id="msg_InternalTransfer" class="msg"></div>
+    </form>
+  </div>
+
+  <!-- OPENING STOCK -->
+  <div id="opening" class="view">
+    <h2>📦 Opening Stock Entry</h2>
+    <form id="formOpening" onsubmit="submitForm(event, 'Opening')">
+      <div class="row">
+        <label>Item</label>
+        <select id="o_item" required><option value="">Select Item</option></select>
+      </div>
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="o_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>Location Type</label>
+        <select id="o_destType" required onchange="populateDest('o_destType', 'o_destLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>Location Name</label>
+        <select id="o_destLoc" required><option value="">Select</option></select>
+      </div>
+      <button type="submit" class="btn">Save Opening Stock</button>
+      <div id="msg_Opening" class="msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Edit Pending Sale -->
+<div id="editDispatchModal" class="modal">
+  <div class="modal-content">
+    <h3 id="editDispatchTitle">Edit Sale Order</h3>
+    <form id="formEditDispatch" onsubmit="submitEditDispatch(event)">
+      <input type="hidden" id="e_txnId">
+
+      <div class="row">
+        <label>Quantity</label>
+        <input type="number" id="e_qty" required min="0.01" step="any">
+      </div>
+      <div class="row">
+        <label>New Source Type</label>
+        <select id="e_sourceType" required onchange="populateDest('e_sourceType', 'e_sourceLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Party">Purchased Party</option>
+          <option value="Transit">Transit</option>
+        </select>
+      </div>
+      <div class="row">
+        <label>New Source Location</label>
+        <select id="e_sourceLoc" required><option value="">Select Source</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="e_btn">Save Changes</button>
+      <button type="button" class="btn" style="background:#888;" onclick="document.getElementById('editDispatchModal').style.display='none'">Cancel</button>
+      <div id="msg_EditDispatchModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Dispatch Actions -->
+<div id="dispatchModal" class="modal">
+  <div class="modal-content">
+    <h3 id="dispatchTitle">Dispatch Order</h3>
+    <form id="formDispatchAction" onsubmit="submitDispatchAction(event)">
+      <input type="hidden" id="d_txnId">
+
+      <div class="row">
+        <label>Driver Name</label>
+        <input type="text" id="d_driverName" required placeholder="Name of Driver">
+      </div>
+      <div class="row">
+        <label>Driver Phone No.</label>
+        <input type="text" id="d_driverPhone" required placeholder="Phone Number">
+      </div>
+      <div class="row">
+        <label>Invoice No / LR No</label>
+        <input type="text" id="d_invoiceNo" required placeholder="e.g. INV-2024-001">
+      </div>
+      <div class="row">
+        <label>Upload Invoice/LR (Optional)</label>
+        <input type="file" id="d_file" accept=".pdf,image/*">
+      </div>
+
+      <button type="submit" class="btn" id="d_btn">Confirm Dispatch</button>
+      <button type="button" class="btn" style="background:#888;" onclick="document.getElementById('dispatchModal').style.display='none'">Cancel</button>
+      <div id="msg_DispatchModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Route Pending Purchases -->
+<div id="routePurchaseModal" class="modal">
+  <div class="modal-content">
+    <h3 id="routeModalTitle">Route Purchase</h3>
+    <form id="formRoutePurchase" onsubmit="submitRoutePurchase(event)">
+      <input type="hidden" id="rp_txnId">
+      <input type="hidden" id="rp_item">
+      <input type="hidden" id="rp_supplier">
+
+      <div class="row">
+        <label>Quantity to Route (Max: <span id="rp_maxQtyTxt"></span>)</label>
+        <input type="number" id="rp_qty" required min="0.01" step="any">
+        <input type="hidden" id="rp_maxQty">
+      </div>
+
+      <div class="row">
+        <label>Final Destination Type</label>
+        <select id="rp_destType" required onchange="populateDest('rp_destType', 'rp_destLoc')">
+          <option value="">Select</option>
+          <option value="Godown">Godown</option>
+          <option value="Transit">Transit</option>
+          <option value="CFS">CFS</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label>Final Destination Name</label>
+        <select id="rp_destLoc" required><option value="">Select</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="rp_btn">Confirm Routing</button>
+      <button type="button" class="btn" style="background:#888;" onclick="closeRouteModal()">Cancel</button>
+      <div id="msg_routeModal" class="msg"></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal for Transit Actions -->
+<div id="actionModal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">Action</h3>
+    <form id="formTransitAction" onsubmit="submitTransitAction(event)">
+      <input type="hidden" id="ta_type">
+      <input type="hidden" id="ta_sourceLoc">
+      <input type="hidden" id="ta_item">
+
+      <div class="row">
+        <label>Quantity (Max: <span id="ta_maxQty"></span>)</label>
+        <input type="number" id="ta_qty" required min="0.01" step="any">
+      </div>
+
+      <div class="row" id="ta_godown_wrap" style="display:none;">
+        <label>Receive into Godown</label>
+        <select id="ta_destGodown"><option value="">Select Godown</option></select>
+      </div>
+
+      <div class="row" id="ta_sale_wrap" style="display:none;">
+        <label>Order Ref No</label>
+        <input type="text" id="ta_orderRef" placeholder="e.g. SO-2001">
+        <label style="margin-top:10px;">Buyer Name</label>
+        <select id="ta_buyer"><option value="">Select Buyer</option></select>
+      </div>
+
+      <button type="submit" class="btn" id="ta_btn">Confirm</button>
+      <button type="button" class="btn" style="background:#888;" onclick="closeModal()">Cancel</button>
+      <div id="msg_Modal" class="msg"></div>
+    </form>
+  </div>
 </div>
 
 <script>
+let master = { items: [], godowns: [], parties: [] };
 
-let partyData = [];
-let brandData = [];
-
-google.script.run.withSuccessHandler(function(data) {
-  partyData = data.parties;
-  brandData = data.brands;
-
-  const fromList  = document.getElementById("fromPartyList");
-  const toList    = document.getElementById("toPartyList");
-  const brandList = document.getElementById("brandList");
-
-  partyData.forEach(p => {
-    let o1 = document.createElement("option"); o1.value = p.name; fromList.appendChild(o1);
-    let o2 = document.createElement("option"); o2.value = p.name; toList.appendChild(o2);
-  });
-  brandData.forEach(b => {
-    let o = document.createElement("option"); o.value = b.name; brandList.appendChild(o);
-  });
-
-}).getMasterData();
-
-
-function matchParty(val) {
-  let f = partyData.find(p => p.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
+function showMsg(id, isSuccess, text) {
+  const el = document.getElementById(id);
+  el.className = 'msg ' + (isSuccess ? 'success' : 'error');
+  el.innerText = text;
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
-function matchBrand(val) {
-  let f = brandData.find(b => b.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
+function switchTab(tabId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(tabId === 'dashboard' || tabId === 'dispatch' || tabId === 'transit' || tabId === 'cfs' || tabId === 'pendingpurchases') loadReports();
 }
 
-document.getElementById("fromParty").addEventListener("input", function() {
-  document.getElementById("fromPartyCode").value = matchParty(this.value);
-});
+function init() {
+  google.script.run.withSuccessHandler(res => {
+    if(res.error) {
+      alert("Error loading master data: " + res.error);
+      document.getElementById('loader').style.display = 'none';
+      return;
+    }
+    master = res;
+    populateDropdowns();
+    loadReports();
+  }).getMasterData();
+}
 
-document.getElementById("toParty").addEventListener("input", function() {
-  document.getElementById("toPartyCode").value = matchParty(this.value);
-});
+function populateDropdowns() {
+  // Items
+  const itemOpts = '<option value="">Select Item</option>' + master.items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+  ['p_item', 's_item', 'o_item', 'it_item'].forEach(id => document.getElementById(id).innerHTML = itemOpts);
 
-document.getElementById("brandName").addEventListener("input", function() {
-  document.getElementById("brandCode").value = matchBrand(this.value);
-});
+  // Parties / Suppliers / Buyers
+  const partyOpts = '<option value="">Select</option>' + master.parties.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+  document.getElementById('p_supplier').innerHTML = partyOpts;
+  document.getElementById('s_destLoc').innerHTML = partyOpts;
+  document.getElementById('ta_buyer').innerHTML = partyOpts;
 
-document.getElementById("vehicleNo").addEventListener("input", function() {
-  let pos = this.selectionStart;
-  this.value = this.value.toUpperCase();
-  this.setSelectionRange(pos, pos);
-});
+  // Godowns for Transit modal
+  const godownOpts = '<option value="">Select Destination</option>' +
+    '<optgroup label="Transit"><option value="General Transit">General Transit</option></optgroup>' +
+    '<optgroup label="Godowns">' + master.godowns.map(g => `<option value="${g.name}">${g.name}</option>`).join('') + '</optgroup>';
+  document.getElementById('ta_destGodown').innerHTML = godownOpts;
+}
 
-document.getElementById("myForm").addEventListener("submit", function(e) {
+function populateDest(typeSelectId, locSelectId) {
+  const type = document.getElementById(typeSelectId).value;
+  let locs = [];
+  if (type === 'Godown') locs = master.godowns.map(g => g.name);
+  else if (type === 'Party') locs = master.parties.map(p => p.name);
+  else if (type === 'Transit') locs = ["General Transit"]; // Can add Multiple Transit routes later
+  else if (type === 'CFS') locs = ["General CFS"]; // General CFS location
+
+  document.getElementById(locSelectId).innerHTML = '<option value="">Select</option>' + locs.map(l => `<option value="${l}">${l}</option>`).join('');
+}
+
+function submitForm(e, type) {
   e.preventDefault();
-
-  const btn    = document.getElementById("submitBtn");
-  const msgDiv = document.getElementById("msg");
-
+  const btn = e.target.querySelector('button');
   btn.disabled = true;
-  btn.textContent = "Submitting...";
-  msgDiv.style.display = "none";
+  btn.innerText = "Processing...";
+
+  let prefix = '';
+  if(type==='Purchase') prefix='p_';
+  if(type==='SaleOrder') prefix='s_';
+  if(type==='Opening') prefix='o_';
+  if(type==='InternalTransfer') prefix='it_';
 
   let obj = {
-    fromParty    : document.getElementById("fromParty").value,
-    fromPartyCode: document.getElementById("fromPartyCode").value,
-    toParty      : document.getElementById("toParty").value,
-    toPartyCode  : document.getElementById("toPartyCode").value,
-    qty          : document.getElementById("qty").value,
-    brandName    : document.getElementById("brandName").value,
-    brandCode    : document.getElementById("brandCode").value,
-    vehicleNo    : document.getElementById("vehicleNo").value,
-    remarks      : document.getElementById("remarks").value
+    type: type,
+    itemName: document.getElementById(prefix+'item').value,
+    qty: document.getElementById(prefix+'qty').value,
+  };
+
+  if(type==='InternalTransfer') {
+    // Treat Internal Transfer as a "Transfer" transaction where source is Godown and dest is Transit
+    obj.type = "Transfer";
+    obj.sourceType = "Godown";
+    obj.sourceLocation = document.getElementById('it_sourceLoc').value;
+    obj.destType = "Transit";
+    // We store the vehicle/carrier or a generic name for the transit location.
+    obj.destLocation = "Internal Transit";
+    obj.remarks = JSON.stringify({
+      intendedDestType: "Godown",
+      intendedDestLoc: document.getElementById('it_destLoc').value,
+      remarks: document.getElementById('it_remarks').value || "Internal Transfer"
+    });
+  } else if(type==='Purchase') {
+    obj.purchaseType = document.getElementById('p_purchaseType').value;
+    obj.supplier = document.getElementById('p_supplier').value;
+    obj.destType = document.getElementById('p_destType').value;
+    obj.destLocation = document.getElementById('p_destLoc').value;
+    obj.remarks = document.getElementById('p_remarks').value;
+  } else if(type==='SaleOrder') {
+    obj.orderRef = document.getElementById('s_orderRef').value;
+    obj.sourceType = document.getElementById('s_sourceType').value;
+    obj.sourceLocation = document.getElementById('s_sourceLoc').value;
+    obj.destType = "Buyer";
+    obj.destLocation = document.getElementById('s_destLoc').value;
+    obj.status = "PendingSale";
+  } else if(type==='Opening') {
+    obj.destType = document.getElementById('o_destType').value;
+    obj.destLocation = document.getElementById('o_destLoc').value;
+  }
+
+  let displayType = type;
+  if(type === 'InternalTransfer') displayType = 'InternalTransfer'; // For msg_InternalTransfer id
+
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Submit";
+    if(res === "Success") {
+      showMsg('msg_'+displayType, true, "Entry saved successfully!");
+      e.target.reset();
+    } else {
+      showMsg('msg_'+displayType, false, res);
+    }
+  }).saveTransaction(obj);
+}
+
+function loadReports() {
+  document.getElementById('loader').style.display = 'flex';
+  google.script.run
+  .withFailureHandler(err => {
+    document.getElementById('loader').style.display = 'none';
+    alert("Server error: " + err);
+  })
+  .withSuccessHandler(res => {
+    document.getElementById('loader').style.display = 'none';
+    if(!res) {
+      alert("Failed to load data. The server returned an empty response. Please check your sheet data.");
+      return;
+    }
+    if(res.error) {
+      console.error(res.error);
+      alert("Error: " + res.error);
+      return;
+    }
+    try {
+      renderReports(res);
+    } catch(e) {
+      console.error("UI Render Error:", e);
+      alert("An error occurred while displaying the dashboard: " + e.message);
+    }
+  }).getReportsData();
+}
+
+function toggleDetails(itemId) {
+  const rows = document.querySelectorAll('.det-' + itemId.replace(/[^a-zA-Z0-9]/g, '-'));
+  rows.forEach(r => r.classList.toggle('open'));
+}
+
+function fmtQty(qty) {
+  if (qty == null) return 0;
+  return Number(parseFloat(qty).toFixed(2));
+}
+
+function renderReports(data) {
+  // Detailed
+  let dHtml = '';
+  data.detailed.forEach(d => {
+    dHtml += `<tr>
+      <td>${d.locName} <span style="font-size:10px;color:#777;">(${d.locType})</span></td>
+      <td>${d.itemName}</td>
+      <td>${fmtQty(d.godown)}</td>
+      <td>${fmtQty(d.party)}</td>
+      <td>${fmtQty(d.transit)}</td>
+      <td>${fmtQty(d.cfs)}</td>
+      <td style="color:#b71c1c;">${fmtQty(d.pending)}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(d.saleable)}</td>
+    </tr>`;
+  });
+  document.getElementById('detailedReportTable').innerHTML = dHtml || '<tr><td colspan="8">No data available</td></tr>';
+
+  // State-Wise
+  let sHtml = '';
+  data.stateWise.forEach(s => {
+    sHtml += `<tr>
+      <td>${s.state}</td>
+      <td>${s.item}</td>
+      <td>${fmtQty(s.godown)}</td>
+      <td>${fmtQty(s.party)}</td>
+      <td>${fmtQty(s.transit)}</td>
+      <td>${fmtQty(s.cfs)}</td>
+      <td style="color:#b71c1c;">${fmtQty(s.pending)}</td>
+      <td style="font-weight:bold; color:#1a7a1a;">${fmtQty(s.saleable)}</td>
+    </tr>`;
+  });
+  document.getElementById('stateReportTable').innerHTML = sHtml || '<tr><td colspan="8">No data available</td></tr>';
+
+  // Item-Wise Cards
+  let bHtml = '';
+  data.itemWise.forEach((i) => {
+    let safeId = i.item.replace(/[^a-zA-Z0-9]/g, '-');
+    bHtml += `
+      <div class="card">
+        <div class="card-title">${i.item}</div>
+        <div class="card-stat">1. Godown (Physical): <span>${fmtQty(i.godown)}</span></div>
+        <div class="card-stat">2. At Party (Physical): <span>${fmtQty(i.party)}</span></div>
+        <div class="card-stat">3. In Transit (Physical): <span>${fmtQty(i.transit)}</span></div>
+        <div class="card-stat">4. In CFS (Physical): <span>${fmtQty(i.cfs)}</span></div>
+        <div class="card-stat" style="color:#b71c1c;">5. Pending Sale: <span>${fmtQty(i.pending)}</span></div>
+        <hr style="border-top:1px solid #ddd; margin:8px 0;">
+        <div class="card-stat" style="color:#1a7a1a; font-size:16px;">Saleable (1+2+3+4-5): <span>${fmtQty(i.saleable)}</span></div>
+        <button class="expand-btn" onclick="toggleDetails('${safeId}')" style="margin-top:10px;">Show Location Details</button>
+        <table style="margin-top:10px; width:100%; font-size:12px;">
+          ${i.details.map(det => `
+            <tr class="details-row det-${safeId}">
+              <td>${det.locName} (${det.locType})</td>
+              <td style="text-align:right;">${fmtQty(det.saleable)}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    `;
+  });
+  document.getElementById('itemReportCards').innerHTML = bHtml || '<div style="padding:15px;">No data available</div>';
+
+  // Pending Purchases Table
+  let ppHtml = '';
+  if (data.pendingPurchases) {
+    data.pendingPurchases.forEach(p => {
+      let dateStr = new Date(p.Timestamp).toLocaleDateString();
+      ppHtml += `
+        <tr>
+          <td>${dateStr}</td>
+          <td><strong>${p.ItemName}</strong></td>
+          <td>${fmtQty(p.Qty)}</td>
+          <td>${p.Supplier}</td>
+          <td>${p.DestLocation} (${p.DestType})</td>
+          <td>
+            <button class="action-btn" onclick="openRoutePurchaseModal('${p.TxnID}', '${p.ItemName}', ${fmtQty(p.Qty)}, '${p.Supplier}', '${p.DestType}')">Route / Receive</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById('pendingPurchasesTable').innerHTML = ppHtml || '<tr><td colspan="6">No pending purchases to route.</td></tr>';
+
+  // Active CFS Table
+  let cfsHtml = '';
+  if (data.activeCFS) {
+    data.activeCFS.forEach(c => {
+      cfsHtml += `
+        <tr>
+          <td><strong>${c.itemName}</strong></td>
+          <td>${c.locName}</td>
+          <td style="color:green; font-weight:bold;">${fmtQty(c.saleable)}</td>
+          <td>
+            <button class="action-btn" onclick="openTransitAction('Transfer', '${c.itemName}', '${c.locName}', ${fmtQty(c.saleable)}, 'CFS')">Route to Godown/Transit</button>
+            <button class="action-btn" onclick="openTransitAction('SaleOrder', '${c.itemName}', '${c.locName}', ${fmtQty(c.saleable)}, 'CFS')">Sale Direct</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById('cfsTable').innerHTML = cfsHtml || '<tr><td colspan="4">No items currently in CFS.</td></tr>';
+
+  // Active Transit Table
+  let tHtml = '';
+  data.activeTransit.forEach(t => {
+    tHtml += `
+      <tr>
+        <td><strong>${t.itemName}</strong></td>
+        <td>${t.locName}</td>
+        <td style="color:green; font-weight:bold;">${fmtQty(t.saleable)}</td>
+        <td>
+          <button class="action-btn" onclick="openTransitAction('Transfer', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)}, 'Transit')">Receive to Godown</button>
+          <button class="action-btn" onclick="openTransitAction('SaleOrder', '${t.itemName}', '${t.locName}', ${fmtQty(t.saleable)}, 'Transit')">Sale Direct</button>
+        </td>
+      </tr>
+    `;
+  });
+  document.getElementById('transitTable').innerHTML = tHtml || '<tr><td colspan="4">No items currently in transit.</td></tr>';
+
+  // Pending Dispatches Table
+  let dispHtml = '';
+  data.pendingSales.forEach(p => {
+    let dateStr = new Date(p.Timestamp).toLocaleDateString();
+    dispHtml += `
+      <tr>
+        <td>${dateStr}</td><td><strong>${p.OrderRef}</strong></td><td>${p.ItemName}</td><td>${fmtQty(p.Qty)}</td>
+        <td>${p.SourceLocation} (${p.SourceType})</td><td>${p.DestLocation}</td>
+        <td>
+          <button style="padding:5px 10px; font-size:12px;" onclick="openDispatchModal('${p.TxnID}', '${p.OrderRef}')">Mark Dispatched</button>
+          <button style="padding:5px 10px; font-size:12px; background:#f0ad4e; color:#fff;" onclick="openEditDispatchModal('${p.TxnID}', '${p.OrderRef}', '${fmtQty(p.Qty)}', '${p.SourceType}', '${p.SourceLocation}')">Edit</button>
+        </td>
+      </tr>
+    `;
+  });
+  document.getElementById('dispatchTable').innerHTML = dispHtml || '<tr><td colspan="7">No pending sales to dispatch.</td></tr>';
+}
+
+function openEditDispatchModal(txnId, orderRef, qty, sourceType, sourceLoc) {
+  document.getElementById('formEditDispatch').reset();
+  document.getElementById('e_txnId').value = txnId;
+  document.getElementById('editDispatchTitle').innerText = "Edit Sale Order: " + orderRef;
+  document.getElementById('e_qty').value = qty;
+
+  // Try to set source type and populate locations
+  const typeSelect = document.getElementById('e_sourceType');
+  typeSelect.value = sourceType;
+  populateDest('e_sourceType', 'e_sourceLoc');
+
+  // Set location slightly delayed to allow populate to finish
+  setTimeout(() => {
+    document.getElementById('e_sourceLoc').value = sourceLoc;
+  }, 100);
+
+  document.getElementById('editDispatchModal').style.display = 'flex';
+}
+
+function submitEditDispatch(e) {
+  e.preventDefault();
+  const btn = document.getElementById('e_btn');
+  btn.disabled = true;
+  btn.innerText = "Saving...";
+
+  let obj = {
+    txnId: document.getElementById('e_txnId').value,
+    qty: document.getElementById('e_qty').value,
+    sourceType: document.getElementById('e_sourceType').value,
+    sourceLocation: document.getElementById('e_sourceLoc').value
   };
 
   google.script.run
-    .withSuccessHandler(function(res) {
-      const ok = res === "Success";
-      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
-      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
-      msgDiv.style.display = "block";
-      if (ok) {
-        document.getElementById("myForm").reset();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
+  .withFailureHandler(err => {
+    btn.disabled = false;
+    btn.innerText = "Save Changes";
+    showMsg('msg_EditDispatchModal', false, "Server Error: " + err);
+  })
+  .withSuccessHandler(res => {
+    if(res === "Success") {
+      document.getElementById('editDispatchModal').style.display = 'none';
+      showMsg('msg_Dispatch', true, "Sale Order Updated!");
+      loadReports();
+    } else {
+      showMsg('msg_EditDispatchModal', false, res);
       btn.disabled = false;
-      btn.textContent = "Submit / जमा करें";
-    })
-    .saveData(obj);
-});
+      btn.innerText = "Save Changes";
+    }
+  }).editSaleOrder(obj);
+}
 
+function openDispatchModal(txnId, orderRef) {
+  document.getElementById('formDispatchAction').reset();
+  document.getElementById('d_txnId').value = txnId;
+  document.getElementById('dispatchTitle').innerText = "Dispatch Order: " + orderRef;
+  document.getElementById('dispatchModal').style.display = 'flex';
+}
+
+function submitDispatchAction(e) {
+  e.preventDefault();
+  const btn = document.getElementById('d_btn');
+  btn.disabled = true;
+  btn.innerText = "Uploading & Saving...";
+
+  let obj = {
+    txnId: document.getElementById('d_txnId').value,
+    driverName: document.getElementById('d_driverName').value,
+    driverPhone: document.getElementById('d_driverPhone').value,
+    invoiceNo: document.getElementById('d_invoiceNo').value
+  };
+
+  const fileInput = document.getElementById('d_file');
+  if (fileInput.files.length > 0) {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      // evt.target.result looks like: data:application/pdf;base64,JVBERi0xLjQK...
+      const dataUrl = evt.target.result;
+      const base64Data = dataUrl.split(',')[1];
+      obj.fileData = base64Data;
+      obj.fileName = file.name;
+      obj.fileType = file.type;
+      sendDispatchToBackend(obj, btn);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    sendDispatchToBackend(obj, btn);
+  }
+}
+
+function sendDispatchToBackend(obj, btn) {
+  google.script.run.withSuccessHandler(res => {
+    if(res === "Success") {
+      document.getElementById('dispatchModal').style.display = 'none';
+      showMsg('msg_Dispatch', true, "Dispatched successfully!");
+      loadReports();
+    } else {
+      showMsg('msg_DispatchModal', false, res);
+      btn.innerText = "Confirm Dispatch";
+      btn.disabled = false;
+    }
+  }).dispatchSale(obj);
+}
+
+// Route Pending Purchase Modal
+function openRoutePurchaseModal(txnId, itemName, qty, supplier, intendedDestType) {
+  document.getElementById('formRoutePurchase').reset();
+  document.getElementById('rp_txnId').value = txnId;
+  document.getElementById('rp_item').value = itemName;
+  document.getElementById('rp_supplier').value = supplier;
+  document.getElementById('rp_qty').value = qty;
+  document.getElementById('rp_qty').max = qty;
+  document.getElementById('rp_maxQty').value = qty;
+  document.getElementById('rp_maxQtyTxt').innerText = qty;
+
+  if(intendedDestType && intendedDestType !== "Party") {
+    const typeSelect = document.getElementById('rp_destType');
+    for (let i = 0; i < typeSelect.options.length; i++) {
+        if (typeSelect.options[i].value === intendedDestType) {
+            typeSelect.selectedIndex = i;
+            populateDest('rp_destType', 'rp_destLoc');
+            break;
+        }
+    }
+  }
+
+  document.getElementById('routePurchaseModal').style.display = 'flex';
+}
+
+function closeRouteModal() {
+  document.getElementById('routePurchaseModal').style.display = 'none';
+  document.getElementById('formRoutePurchase').reset();
+}
+
+function submitRoutePurchase(e) {
+  e.preventDefault();
+  const btn = document.getElementById('rp_btn');
+  btn.disabled = true;
+  btn.innerText = "Routing...";
+
+  const inputQty = parseFloat(document.getElementById('rp_qty').value);
+  const maxQty = parseFloat(document.getElementById('rp_maxQty').value);
+
+  if (inputQty > maxQty) {
+    document.getElementById('msg_routeModal').innerText = `Cannot route more than ${maxQty}`;
+    document.getElementById('msg_routeModal').className = "msg error";
+    btn.disabled = false;
+    btn.innerText = "Confirm Routing";
+    return;
+  }
+
+  let obj = {
+    txnId: document.getElementById('rp_txnId').value,
+    itemName: document.getElementById('rp_item').value,
+    qty: inputQty,
+    maxQty: maxQty, // send maxQty to the backend to help determine if it's partial or full
+    supplier: document.getElementById('rp_supplier').value,
+    destType: document.getElementById('rp_destType').value,
+    destLocation: document.getElementById('rp_destLoc').value
+  };
+
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Confirm Routing";
+    if(res === "Success") {
+      closeRouteModal();
+      alert("Purchase routed successfully!");
+      loadReports();
+    } else {
+      document.getElementById('msg_routeModal').innerText = res;
+      document.getElementById('msg_routeModal').className = "msg error";
+    }
+  }).routePurchase(obj);
+}
+
+// Transit/CFS Modal Functions
+let currentSourceTypeForModal = "Transit"; // Track whether modal is for Transit or CFS
+
+function openTransitAction(actionType, itemName, locName, maxQty, srcType = "Transit") {
+  currentSourceTypeForModal = srcType;
+  document.getElementById('ta_type').value = actionType;
+  document.getElementById('ta_item').value = itemName;
+  document.getElementById('ta_sourceLoc').value = locName;
+  document.getElementById('ta_maxQty').innerText = maxQty;
+  document.getElementById('ta_qty').max = maxQty;
+  document.getElementById('ta_qty').value = '';
+
+  document.getElementById('ta_godown_wrap').style.display = (actionType === 'Transfer') ? 'block' : 'none';
+  document.getElementById('ta_sale_wrap').style.display = (actionType === 'SaleOrder') ? 'block' : 'none';
+
+  if(actionType === 'Transfer') {
+    document.getElementById('modalTitle').innerText = `Route ${itemName} from ${srcType} to Godown/Transit`;
+    document.getElementById('ta_destGodown').required = true;
+    document.getElementById('ta_orderRef').required = false;
+    document.getElementById('ta_buyer').required = false;
+
+    // Change label based on source
+    let lbl = document.getElementById('ta_godown_wrap').querySelector('label');
+    if(lbl) lbl.innerText = srcType === "CFS" ? "Receive to Godown/Transit" : "Receive to Godown";
+
+  } else {
+    document.getElementById('modalTitle').innerText = `Sell ${itemName} from ${srcType}`;
+    document.getElementById('ta_destGodown').required = false;
+    document.getElementById('ta_orderRef').required = true;
+    document.getElementById('ta_buyer').required = true;
+  }
+
+  document.getElementById('actionModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('actionModal').style.display = 'none';
+  document.getElementById('formTransitAction').reset();
+}
+
+function submitTransitAction(e) {
+  e.preventDefault();
+  const btn = document.getElementById('ta_btn');
+  btn.disabled = true;
+  btn.innerText = "Processing...";
+
+  const actionType = document.getElementById('ta_type').value;
+  const qtyInput = parseFloat(document.getElementById('ta_qty').value);
+  const maxQty = parseFloat(document.getElementById('ta_maxQty').innerText);
+
+  if(qtyInput > maxQty) {
+    showMsg('msg_Modal', false, `Cannot move more than available qty in ${currentSourceTypeForModal}!`);
+    btn.disabled = false; btn.innerText = "Confirm"; return;
+  }
+
+  let obj = {
+    type: actionType,
+    itemName: document.getElementById('ta_item').value,
+    qty: qtyInput,
+    sourceType: currentSourceTypeForModal,
+    sourceLocation: document.getElementById('ta_sourceLoc').value,
+  };
+
+  if(actionType === "Transfer") {
+    // Determine destination type based on what user selected in the dropdown
+    let destVal = document.getElementById('ta_destGodown').value;
+    if(destVal === "General Transit") {
+      obj.destType = "Transit";
+    } else {
+      obj.destType = "Godown";
+    }
+    obj.destLocation = destVal;
+  } else {
+    obj.destType = "Buyer";
+    obj.destLocation = document.getElementById('ta_buyer').value;
+    obj.orderRef = document.getElementById('ta_orderRef').value;
+    obj.status = "PendingSale";
+  }
+
+  google.script.run.withSuccessHandler(res => {
+    btn.disabled = false;
+    btn.innerText = "Confirm";
+    if(res === "Success") {
+      closeModal();
+      loadReports();
+    } else {
+      showMsg('msg_Modal', false, res);
+    }
+  }).saveTransaction(obj);
+}
+
+
+window.onload = init;
 </script>
 </body>
 </html>
