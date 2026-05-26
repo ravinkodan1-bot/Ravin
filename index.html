@@ -5,6 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
 
+.nav-bar {
+  display: flex;
+  background: #0b5394;
+  padding: 10px;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.nav-btn {
+  background: transparent;
+  color: white;
+  border: 1px solid white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  margin: 0;
+  width: auto;
+}
+
+.nav-btn.active {
+  background: white;
+  color: #0b5394;
+}
+
+.view-section {
+  display: none;
+}
+
+.view-section.active {
+  display: block;
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -96,6 +130,25 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
 }
 
+.custom-select {
+  width: 100%;
+  padding: 16px 12px;
+  border: 2px solid #d0d8e4;
+  border-radius: 10px;
+  font-size: 17px;
+  outline: none;
+  background: #fff;
+  color: #111;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.custom-select:focus {
+  border-color: #0b5394;
+  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
+}
+
 input[readonly] {
   width: 100%;
   padding: 13px 12px;
@@ -167,7 +220,36 @@ button:disabled {
 </head>
 
 <body>
-<div class="box">
+
+<div class="nav-bar">
+  <button class="nav-btn active" onclick="switchView(event, 'importView')">Import Form</button>
+  <button class="nav-btn" onclick="switchView(event, 'transitView')">Transit Form</button>
+  <button class="nav-btn" onclick="switchView(event, 'dashboardView')">Dashboard</button>
+</div>
+
+<div class="box view-section" id="dashboardView">
+  <h2>📊 Dashboard</h2>
+  <div style="display: flex; flex-direction: column; gap: 15px; padding: 10px;">
+
+    <div style="background: #e6f9e6; border: 1px solid #b2e0b2; border-radius: 10px; padding: 20px; text-align: center;">
+      <h3 style="margin: 0; color: #1a7a1a; font-size: 16px;">Total Pending Amount</h3>
+      <div id="dashPendingAmount" style="font-size: 28px; font-weight: bold; color: #111; margin-top: 10px;">Loading...</div>
+    </div>
+
+    <div style="background: #fdecea; border: 1px solid #f5c6c6; border-radius: 10px; padding: 20px; text-align: center;">
+      <h3 style="margin: 0; color: #b71c1c; font-size: 16px;">Shipments with Duty Pending</h3>
+      <div id="dashDutyPending" style="font-size: 28px; font-weight: bold; color: #111; margin-top: 10px;">Loading...</div>
+    </div>
+
+    <div style="background: #e0eaf5; border: 1px solid #0b5394; border-radius: 10px; padding: 20px; text-align: center;">
+      <h3 style="margin: 0; color: #0b5394; font-size: 16px;">Shipments Arriving This Week</h3>
+      <div id="dashArrivingWeek" style="font-size: 28px; font-weight: bold; color: #111; margin-top: 10px;">Loading...</div>
+    </div>
+
+  </div>
+</div> <!-- End dashboard view -->
+
+<div class="box view-section" id="transitView">
 
   <h2>🚚 Transit Entry Form</h2>
 
@@ -234,7 +316,214 @@ button:disabled {
 
 </div>
 
+</div> <!-- End transit view -->
+
+<div class="box view-section active" id="importView">
+  <h2>🚢 Import Purchase Form</h2>
+  <form id="importForm" autocomplete="off">
+    <div class="section-title">General Details</div>
+    <div class="row">
+      <label>Date</label>
+      <input type="date" id="importDate" required>
+    </div>
+    <div class="row">
+      <label>Job No</label>
+      <input type="text" id="jobNo" placeholder="Job No">
+    </div>
+    <div class="row">
+      <label>Owner</label>
+      <input type="text" id="owner" placeholder="Owner Name">
+    </div>
+    <div class="row">
+      <label>Importer</label>
+      <input type="text" id="importer" placeholder="Importer Name">
+    </div>
+
+    <div class="section-title">Purchase Details</div>
+    <div class="row">
+      <label>Supplier/Manufacturer</label>
+      <input type="text" id="supplier" placeholder="Supplier Name">
+    </div>
+    <div class="row">
+      <label>Item Description</label>
+      <input type="text" id="itemDesc" placeholder="Item Description">
+    </div>
+    <div class="row">
+      <label>Invoice No</label>
+      <input type="text" id="invoiceNo" placeholder="Invoice No">
+    </div>
+    <div class="row">
+      <label>Invoice Value</label>
+      <input type="number" id="invoiceValue" placeholder="Invoice Value" step="0.01">
+    </div>
+    <div class="row">
+      <label>Quantity</label>
+      <input type="number" id="importQty" placeholder="Quantity" step="0.01">
+    </div>
+    <div class="row">
+      <label>Rate</label>
+      <input type="number" id="rate" placeholder="Rate" step="0.01">
+    </div>
+
+    <div class="section-title">Shipping Details</div>
+    <div class="row">
+      <label>BL No.</label>
+      <input type="text" id="blNo" placeholder="BL No.">
+    </div>
+    <div class="row">
+      <label>Shipping Line</label>
+      <input type="text" id="shippingLine" placeholder="Shipping Line">
+    </div>
+    <div class="row">
+      <label>DO Validity</label>
+      <input type="date" id="doValidity">
+    </div>
+    <div class="row">
+      <label>BE No</label>
+      <input type="text" id="beNo" placeholder="BE No">
+    </div>
+    <div class="row">
+      <label>BE Date</label>
+      <input type="date" id="beDate">
+    </div>
+    <div class="row">
+      <label>Origin</label>
+      <input type="text" id="origin" placeholder="Origin">
+    </div>
+    <div class="row">
+      <label>POD</label>
+      <input type="text" id="pod" placeholder="POD">
+    </div>
+    <div class="row">
+      <label>ETA POD</label>
+      <input type="date" id="etaPod">
+    </div>
+    <div class="row">
+      <label>ETA CFS</label>
+      <input type="date" id="etaCfs">
+    </div>
+
+    <div class="section-title">Status & Payments</div>
+    <div class="row">
+      <label>Payment Terms</label>
+      <select id="paymentTerms" class="custom-select">
+        <option value="">Select Payment Terms</option>
+        <option value="20% Advance & 80% after 1 week bl copy doc">20% Advance & 80% after 1 week bl copy doc</option>
+        <option value="20% Advance & 80% against BL copy within 5 days before ETA">20% Advance & 80% against BL copy within 5 days before ETA</option>
+        <option value="20% Advance & 80% WITHIN 7 DAYS from shipping date">20% Advance & 80% WITHIN 7 DAYS from shipping date</option>
+        <option value="LC at Sight">LC at Sight</option>
+        <option value="20% TT in Advance within 3 working days after contract signed remaining 80% within 7 days against copy of B/L Issues">20% TT in Advance within 3 working days after contract signed remaining 80% within 7 days against copy of B/L Issues</option>
+        <option value="20% Advance & 80% TT against document copy within 2 weeks">20% Advance & 80% TT against document copy within 2 weeks</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Payment Status</label>
+      <select id="paymentStatus" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="N/A">N/A</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Pending Amount</label>
+      <input type="number" id="pendingAmount" placeholder="Pending Amount" step="0.01">
+    </div>
+    <div class="row">
+      <label>Telex Received</label>
+      <select id="telexReceived" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="N/A">N/A</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>NN Documents</label>
+      <select id="nnDocuments" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>IGM File</label>
+      <input type="text" id="igmFile" placeholder="IGM File">
+    </div>
+    <div class="row">
+      <label>Duty Payment</label>
+      <input type="number" id="dutyPayment" placeholder="Duty Payment Amount" step="0.01">
+    </div>
+    <div class="row">
+      <label>Status Duty Pending</label>
+      <select id="statusDutyPending" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="N/A">N/A</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>OOC</label>
+      <select id="ooc" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Shipping Line Payment</label>
+      <input type="number" id="shippingLinePayment" placeholder="Shipping Line Payment Amount" step="0.01">
+    </div>
+    <div class="row">
+      <label>Status Line Payment</label>
+      <select id="statusLinePayment" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="N/A">N/A</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>DO Released</label>
+      <select id="doReleased" class="custom-select">
+        <option value="Pending">Pending</option>
+        <option value="Yes">Yes</option>
+        <option value="No">No</option>
+      </select>
+    </div>
+
+    <div class="section-title">Other</div>
+    <div class="row">
+      <label>Remarks</label>
+      <textarea id="importRemarks" placeholder="Optional notes..."></textarea>
+    </div>
+
+    <div class="btn-wrap">
+      <button type="submit" id="importSubmitBtn">Submit Import Entry</button>
+    </div>
+  </form>
+  <div class="msg-box" id="importMsg"></div>
+</div> <!-- End import view -->
+
+
 <script>
+function switchView(event, viewId) {
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+
+  if(viewId === 'dashboardView') {
+    document.getElementById("dashPendingAmount").textContent = "Loading...";
+    document.getElementById("dashDutyPending").textContent = "Loading...";
+    document.getElementById("dashArrivingWeek").textContent = "Loading...";
+    google.script.run.withSuccessHandler(updateDashboard).getDashboardData();
+  }
+}
+
+function updateDashboard(data) {
+  document.getElementById("dashPendingAmount").textContent = data.totalPendingAmount.toFixed(2);
+  document.getElementById("dashDutyPending").textContent = data.dutyPendingCount;
+  document.getElementById("dashArrivingWeek").textContent = data.arrivingThisWeekCount;
+}
 
 let partyData = [];
 let brandData = [];
@@ -322,6 +611,67 @@ document.getElementById("myForm").addEventListener("submit", function(e) {
       btn.textContent = "Submit / जमा करें";
     })
     .saveData(obj);
+});
+
+document.getElementById("importForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const btn    = document.getElementById("importSubmitBtn");
+  const msgDiv = document.getElementById("importMsg");
+
+  btn.disabled = true;
+  btn.textContent = "Submitting...";
+  msgDiv.style.display = "none";
+
+  let obj = {
+    importDate: document.getElementById("importDate").value,
+    jobNo: document.getElementById("jobNo").value,
+    owner: document.getElementById("owner").value,
+    importer: document.getElementById("importer").value,
+    supplier: document.getElementById("supplier").value,
+    itemDesc: document.getElementById("itemDesc").value,
+    invoiceNo: document.getElementById("invoiceNo").value,
+    invoiceValue: document.getElementById("invoiceValue").value,
+    importQty: document.getElementById("importQty").value,
+    rate: document.getElementById("rate").value,
+    blNo: document.getElementById("blNo").value,
+    shippingLine: document.getElementById("shippingLine").value,
+    doValidity: document.getElementById("doValidity").value,
+    beNo: document.getElementById("beNo").value,
+    beDate: document.getElementById("beDate").value,
+    origin: document.getElementById("origin").value,
+    pod: document.getElementById("pod").value,
+    etaPod: document.getElementById("etaPod").value,
+    etaCfs: document.getElementById("etaCfs").value,
+    paymentTerms: document.getElementById("paymentTerms").value,
+    paymentStatus: document.getElementById("paymentStatus").value,
+    pendingAmount: document.getElementById("pendingAmount").value,
+    telexReceived: document.getElementById("telexReceived").value,
+    nnDocuments: document.getElementById("nnDocuments").value,
+    igmFile: document.getElementById("igmFile").value,
+    dutyPayment: document.getElementById("dutyPayment").value,
+    statusDutyPending: document.getElementById("statusDutyPending").value,
+    ooc: document.getElementById("ooc").value,
+    shippingLinePayment: document.getElementById("shippingLinePayment").value,
+    statusLinePayment: document.getElementById("statusLinePayment").value,
+    doReleased: document.getElementById("doReleased").value,
+    importRemarks: document.getElementById("importRemarks").value
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      const ok = res === "Success";
+      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
+      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
+      msgDiv.style.display = "block";
+      if (ok) {
+        document.getElementById("importForm").reset();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      btn.disabled = false;
+      btn.textContent = "Submit Import Entry";
+    })
+    .saveImportData(obj);
 });
 
 </script>
