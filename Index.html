@@ -477,3 +477,40 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('view-masters').innerHTML = mastersUI;
 });
 </script>
+
+<!-- COSTING MODAL INJECTION -->
+<script>
+const costingModalUI = `
+<div id="costing-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+        <h3>Costing Details for <span id="cost_jobNo_display"></span></h3>
+        <input type="hidden" id="cost_jobNo">
+        <input type="hidden" id="cost_id">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
+            <div class="form-group"><label>Invoice Value (INR)</label><input type="number" id="cst_inv" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Duty</label><input type="number" id="cst_duty" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Shipping Charges</label><input type="number" id="cst_ship" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Transportation</label><input type="number" id="cst_trans" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>CHA Charges</label><input type="number" id="cst_cha" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Port Charges</label><input type="number" id="cst_port" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Other Expenses</label><input type="number" id="cst_other" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Total Units/Qty</label><input type="number" id="cst_qty" class="form-control" value="1" onchange="calcCosting()"></div>
+        </div>
+        <hr>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:15px; border-radius:5px;">
+            <div>
+                <h4>Total Landed Cost: <span id="cst_tot" style="color:var(--primary);">₹ 0</span></h4>
+                <h4>Per Unit Cost: <span id="cst_unit" style="color:var(--success);">₹ 0</span></h4>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="background:#ddd; color:#333;" onclick="document.getElementById('costing-modal').style.display='none'">Close</button>
+                <button class="btn btn-primary" onclick="submitCosting()" id="cst_save_btn">Save Costing</button>
+            </div>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('modals-container').innerHTML += costingModalUI;
+});
+</script>

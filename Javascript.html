@@ -76,7 +76,7 @@ function executeSearch() {
                 <td>${escapeHtml(r.Importer)}</td>
                 <td>${escapeHtml(r.Current_Stage)}</td>
                 <td>${r.ETA_POD ? new Date(r.ETA_POD).toLocaleDateString() : ''}</td>
-                <td><button class="btn btn-sm btn-info" onclick="openShipmentModal('${escapeHtml(r.Job_No)}')">Edit</button> <button class="btn btn-sm btn-secondary" onclick="openDocsModal('${escapeHtml(r.Job_No)}')">Docs</button></td>
+                <td><button class="btn btn-sm btn-info" onclick="openShipmentModal('${escapeHtml(r.Job_No)}')">Edit</button> <button class="btn btn-sm btn-secondary" onclick="openDocsModal('${escapeHtml(r.Job_No)}')">Docs</button> <button class="btn btn-sm btn-warning" onclick="openCostingModal('${escapeHtml(r.Job_No)}')">Costing</button></td>
             </tr>`;
         });
         html += '</table>';
@@ -114,6 +114,7 @@ function loadShipments() {
                 <td>
                     <button class="btn btn-sm btn-primary" onclick="editShipment('${escapeHtml(s.Job_No)}')">Edit</button>
                     <button class="btn btn-sm btn-secondary" onclick="viewTimeline('${escapeHtml(s.Job_No)}')">Timeline</button>
+                    <button class="btn btn-sm btn-info" onclick="openCostingModal('${escapeHtml(s.Job_No)}')">Costing</button>
                 </td>
             </tr>`;
         });
@@ -624,3 +625,76 @@ function submitEntity() {
     }).saveEntity(data);
 }
 </script>
+
+/* ---------------------------------------------------------
+   COSTING LOGIC
+--------------------------------------------------------- */
+function openCostingModal(jobNo) {
+    document.getElementById('cost_jobNo_display').innerText = jobNo;
+    document.getElementById('cost_jobNo').value = jobNo;
+    document.getElementById('costing-modal').style.display = 'flex';
+
+    // Check if CHA or Read Only role prevents saving costing
+    if(['CHA', 'Read Only'].includes(currentUser.role)) {
+        document.getElementById('cst_save_btn').style.display = 'none';
+        ['cst_inv', 'cst_duty', 'cst_ship', 'cst_trans', 'cst_cha', 'cst_port', 'cst_other', 'cst_qty'].forEach(id => {
+            document.getElementById(id).disabled = true;
+        });
+    }
+
+    // Clear existing
+    ['cst_inv', 'cst_duty', 'cst_ship', 'cst_trans', 'cst_cha', 'cst_port', 'cst_other'].forEach(id => document.getElementById(id).value = 0);
+    document.getElementById('cst_qty').value = 1;
+    document.getElementById('cost_id').value = '';
+
+    google.script.run.withSuccessHandler(data => {
+        if(data) {
+            document.getElementById('cost_id').value = data.ID;
+            document.getElementById('cst_inv').value = data.Invoice || 0;
+            document.getElementById('cst_duty').value = data.Duty || 0;
+            document.getElementById('cst_ship').value = data.Shipping || 0;
+            document.getElementById('cst_trans').value = data.Transport || 0;
+            document.getElementById('cst_cha').value = data.CHA_Chg || 0;
+            document.getElementById('cst_port').value = data.Port || 0;
+            document.getElementById('cst_other').value = data.Other || 0;
+            document.getElementById('cst_qty').value = data.Qty || 1;
+        }
+        calcCosting();
+    }).getCosting(jobNo);
+}
+
+function calcCosting() {
+    const inv = parseFloat(document.getElementById('cst_inv').value) || 0;
+    const duty = parseFloat(document.getElementById('cst_duty').value) || 0;
+    const ship = parseFloat(document.getElementById('cst_ship').value) || 0;
+    const trans = parseFloat(document.getElementById('cst_trans').value) || 0;
+    const cha = parseFloat(document.getElementById('cst_cha').value) || 0;
+    const port = parseFloat(document.getElementById('cst_port').value) || 0;
+    const other = parseFloat(document.getElementById('cst_other').value) || 0;
+    const qty = parseFloat(document.getElementById('cst_qty').value) || 1;
+
+    const total = inv + duty + ship + trans + cha + port + other;
+    const unit = total / qty;
+
+    document.getElementById('cst_tot').innerText = '₹ ' + total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('cst_unit').innerText = '₹ ' + unit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function submitCosting() {
+    const data = {
+        ID: document.getElementById('cost_id').value,
+        Job_No: document.getElementById('cost_jobNo').value,
+        Invoice: parseFloat(document.getElementById('cst_inv').value) || 0,
+        Duty: parseFloat(document.getElementById('cst_duty').value) || 0,
+        Shipping: parseFloat(document.getElementById('cst_ship').value) || 0,
+        Transport: parseFloat(document.getElementById('cst_trans').value) || 0,
+        CHA_Chg: parseFloat(document.getElementById('cst_cha').value) || 0,
+        Port: parseFloat(document.getElementById('cst_port').value) || 0,
+        Other: parseFloat(document.getElementById('cst_other').value) || 0,
+        Qty: parseFloat(document.getElementById('cst_qty').value) || 1
+    };
+    google.script.run.withSuccessHandler(() => {
+        document.getElementById('costing-modal').style.display = 'none';
+        alert("Costing saved successfully");
+    }).saveCosting(data);
+}

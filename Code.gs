@@ -26,8 +26,14 @@ function setDatabaseId(id) {
   return true;
 }
 
+const HARDCODED_DB_ID = '1poJCOnIkHwmyIIixr34M9ofC7KTZAVl09JaqULANRso'; // Added your DB ID here
+
 function getDbId() {
-  return PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_DB_ID);
+  const propId = PropertiesService.getScriptProperties().getProperty(SCRIPT_PROP_DB_ID);
+  // If SCRIPT_PROP_DB_ID was modified by the user directly to be the ID, return it.
+  // Otherwise return the propId, or the HARDCODED_DB_ID.
+  if (SCRIPT_PROP_DB_ID && SCRIPT_PROP_DB_ID.length > 30) return SCRIPT_PROP_DB_ID;
+  return propId || HARDCODED_DB_ID;
 }
 
 // Global configuration cache to prevent repeated sheet reads
@@ -297,7 +303,6 @@ function saveShipment(data) {
           }
       }
   }
-  }
   return true;
 }
 
@@ -374,6 +379,9 @@ function getDashboardData() {
 
     let delayPenaltyCount = 0;
 
+    // Pull COSTING data ONCE for precise "Other Expenses"
+    const costing = getBatchData("COSTING", null);
+
     // Process Shipments
     shipments.forEach(s => {
         if(s.Shipment_Status === 'Delayed') {
@@ -383,14 +391,7 @@ function getDashboardData() {
         if(s.Duty_Status === 'Pending') dutyPending++;
         if(s.Current_Stage === 'Dispatch Planned') readyForDelivery++;
 
-        // Money Blocked Approximation
-
-    let moneyBlocked = 0;
-
-    // Calculate precise Money Blocked according to formula
-    const costing = getBatchData("COSTING", null);
-
-    shipments.forEach(s => {
+        // Calculate precise Money Blocked according to formula
         if(s.Shipment_Status !== 'Completed') {
             moneyBlocked += (Number(s.Invoice_Value) || 0);
 
@@ -400,14 +401,13 @@ function getDashboardData() {
                 // If duty is pending, add to blocked
                 if(s.Duty_Status === 'Pending') moneyBlocked += (Number(costData.Duty) || 0);
 
-                // Add other pending expenses (assuming they are pending if shipment is active)
+                // Add other pending expenses
                 moneyBlocked += (Number(costData.CHA_Chg) || 0) +
                                 (Number(costData.Shipping) || 0) +
                                 (Number(costData.Transport) || 0) +
                                 (Number(costData.Other) || 0);
             }
         }
-    });
     });
 
     // Process Payments
@@ -772,5 +772,41 @@ function saveEntity(data) {
                 break;
             }
         }
+    }
+}
+
+/* ---------------------------------------------------------
+   COSTING MODULE
+--------------------------------------------------------- */
+function getCosting(jobNo) {
+    const data = getBatchData("COSTING", row => row.Job_No === jobNo);
+    return data.length > 0 ? data[0] : null;
+}
+
+function saveCosting(data) {
+    validatePermission(['Admin', 'Import Team', 'Management', 'Accounts Team']);
+    const dbId = getDbId();
+    if(!dbId) return;
+    const ss = SpreadsheetApp.openById(dbId);
+    const sheet = ss.getSheetByName("COSTING");
+    const allData = sheet.getDataRange().getValues();
+    const idIdx = allData[0].indexOf("ID");
+
+    let foundIdx = -1;
+    if(data.ID) {
+        for(let i=1; i<allData.length; i++) {
+            if(allData[i][idIdx] === data.ID) {
+                foundIdx = i;
+                break;
+            }
+        }
+    }
+
+    if(foundIdx > -1) {
+        sheet.getRange(foundIdx+1, 2, 1, 9).setValues([[data.Job_No, data.Invoice, data.Duty, data.Shipping, data.Transport, data.CHA_Chg, data.Port, data.Other, data.Qty]]);
+        logAudit("COSTING", "UPDATE", data.Job_No, {});
+    } else {
+        sheet.appendRow([Utilities.getUuid(), data.Job_No, data.Invoice, data.Duty, data.Shipping, data.Transport, data.CHA_Chg, data.Port, data.Other, data.Qty]);
+        logAudit("COSTING", "CREATE", data.Job_No, {});
     }
 }
