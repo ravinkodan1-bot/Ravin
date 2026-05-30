@@ -1,0 +1,19 @@
+<script>
+function executeSearch() {
+    const q = document.getElementById('searchInput').value;
+    if(q.length < 3) return alert('Enter at least 3 characters');
+    document.getElementById('search-results-container').innerHTML = 'Searching...';
+    google.script.run.withSuccessHandler(results => {
+        let html = '';
+        if(results.length === 0) html = '<p>No results found.</p>';
+        else {
+            html = '<table class="table"><tr><th>Job No</th><th>BL No</th><th>Stage</th></tr>';
+            results.forEach(r => {
+                html += `<tr><td>${escapeHtml(r.Job_No)}</td><td>${escapeHtml(r.BL_No)}</td><td>${escapeHtml(r.Stage)}</td></tr>`;
+            });
+            html += '</table>';
+        }
+        document.getElementById('search-results-container').innerHTML = html;
+    }).globalSearch(q);
+}
+</script>

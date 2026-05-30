@@ -1,0 +1,37 @@
+
+<div class="dashboard-header">
+    <h2>Management Dashboard</h2>
+</div>
+<div class="kpi-grid" style="padding-bottom: 0;">
+    <div class="kpi-card danger"><h4>Delayed Shipments</h4><h2 id="kpi-delayed">0</h2></div>
+    <div class="kpi-card warning"><h4>Duty Pending</h4><h2 id="kpi-duty">0</h2></div>
+    <div class="kpi-card warning"><h4>DO Expiring</h4><h2 id="kpi-do">0</h2></div>
+    <div class="kpi-card primary"><h4>Total Money Blocked</h4><h2 id="kpi-money">₹ 0</h2></div>
+</div>
+<div class="kpi-grid" style="padding-top: 10px;">
+    <div class="kpi-card danger"><h4>Pending Payments</h4><h2 id="kpi-pay">0</h2></div>
+    <div class="kpi-card danger"><h4>Overdue Tasks</h4><h2 id="kpi-overdue">0</h2></div>
+    <div class="kpi-card primary"><h4>Today's Actions</h4><h2 id="kpi-today">0</h2></div>
+    <div class="kpi-card success"><h4>Ready For Dispatch</h4><h2 id="kpi-ready">0</h2></div>
+</div>
+<div class="dashboard-split mt-4">
+    <div class="dash-panel">
+        <div class="panel-header"><h3>Top 5 CHA Performance</h3></div>
+        <div class="panel-body" id="dash-top-cha">Loading...</div>
+    </div>
+    <div class="dash-panel">
+        <div class="panel-header"><h3>Bottom 5 CHA Performance</h3></div>
+        <div class="panel-body" id="dash-bottom-cha">Loading...</div>
+    </div>
+</div>
+
+<div class="dashboard-split mt-4">
+    <div class="dash-panel" style="flex:2;">
+        <div class="panel-header"><h3>KPI Engine Validation</h3></div>
+        <div class="panel-body">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px;" id="kpi-engine-container">
+                Loading KPI...
+            </div>
+        </div>
+    </div>
+</div>

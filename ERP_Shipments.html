@@ -1,0 +1,59 @@
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Active Shipments</h2>
+        <button class="btn btn-primary" onclick="openNewShipmentModal()">+ New Shipment</button>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table" id="shipments-table">
+            <thead>
+                <tr>
+                    <th>Job No</th>
+                    <th>Date</th>
+                    <th>Importer</th>
+                    <th>Supplier</th>
+                    <th>CHA</th>
+                    <th>Stage</th>
+                    <th>ETA</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="shipments-tbody">
+                <tr><td colspan="8">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="shipment-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+        <h3>Shipment Details</h3>
+        <div class="form-group mb-2"><label>Job No</label><input type="text" id="ship_jobNo" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>Importer</label><input type="text" id="ship_importer" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>Supplier</label><input type="text" id="ship_supplier" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>CHA Name</label><input type="text" id="ship_cha" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>BL No</label><input type="text" id="ship_blNo" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>Container No</label><input type="text" id="ship_containerNo" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>Stage</label>
+            <select id="ship_stage" class="form-control" style="width:100%; padding:8px;">
+                <option value="Shipment Booked">Shipment Booked</option>
+                <option value="ETA Updated">ETA Updated</option>
+                <option value="Original Documents Received">Original Documents Received</option>
+                <option value="IGM Filed">IGM Filed</option>
+                <option value="BOE Filed">BOE Filed</option>
+                <option value="Duty Planned">Duty Planned</option>
+                <option value="Duty Paid">Duty Paid</option>
+                <option value="OOC Received">OOC Received</option>
+                <option value="Shipping Line Paid">Shipping Line Paid</option>
+                <option value="DO Released">DO Released</option>
+                <option value="Dispatch Planned">Dispatch Planned</option>
+                <option value="Goods Dispatched">Goods Dispatched</option>
+                <option value="Delivered">Delivered</option>
+            </select>
+        </div>
+        <div class="form-group mb-3"><label>ETA</label><input type="date" id="ship_eta" class="form-control" style="width:100%; padding:8px;"></div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn" style="background:#ddd;" onclick="closeShipmentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveShipment()">Save</button>
+        </div>
+    </div>
+</div>

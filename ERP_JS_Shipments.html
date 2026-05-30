@@ -1,0 +1,60 @@
+<script>
+function loadShipments() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('shipments-tbody');
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8">No active shipments.</td></tr>';
+            return;
+        }
+        let html = '';
+        data.forEach(s => {
+            html += `<tr>
+                <td>${escapeHtml(s.Job_No)}</td>
+                <td>${new Date(s.Date).toLocaleDateString()}</td>
+                <td>${escapeHtml(s.Importer)}</td>
+                <td>${escapeHtml(s.Supplier)}</td>
+                <td>${escapeHtml(s.CHA_Name)}</td>
+                <td>${escapeHtml(s.Stage)}</td>
+                <td>${new Date(s.ETA).toLocaleDateString()}</td>
+                <td><button class="btn btn-primary" onclick="editShipmentStage('${escapeHtml(s.Job_No)}', '${escapeHtml(s.Stage)}')">Update Stage</button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }).getActiveShipments();
+}
+
+function openNewShipmentModal() {
+    document.getElementById('shipment-modal').style.display = 'flex';
+}
+
+function closeShipmentModal() {
+    document.getElementById('shipment-modal').style.display = 'none';
+}
+
+function saveShipment() {
+    const data = {
+        jobNo: document.getElementById('ship_jobNo').value,
+        importer: document.getElementById('ship_importer').value,
+        supplier: document.getElementById('ship_supplier').value,
+        chaName: document.getElementById('ship_cha').value,
+        blNo: document.getElementById('ship_blNo').value,
+        containerNo: document.getElementById('ship_containerNo').value,
+        stage: document.getElementById('ship_stage').value,
+        eta: document.getElementById('ship_eta').value
+    };
+    if(!data.jobNo) return alert("Job No is required.");
+    google.script.run.withSuccessHandler(() => {
+        closeShipmentModal();
+        loadShipments();
+    }).saveNewShipment(data);
+}
+
+function editShipmentStage(jobNo, currentStage) {
+    const newStage = prompt("Update Stage for " + jobNo, currentStage);
+    if(newStage && newStage !== currentStage) {
+        google.script.run.withSuccessHandler(() => {
+            loadShipments();
+        }).updateShipmentStage(jobNo, newStage);
+    }
+}
+</script>

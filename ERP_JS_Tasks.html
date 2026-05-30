@@ -1,0 +1,47 @@
+<script>
+let allTasksCache = [];
+function initTasks() {
+    document.getElementById('tasks-tbody').innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
+    google.script.run.withSuccessHandler(data => {
+        allTasksCache = data;
+        switchTaskTab('all');
+    }).getTasksForDashboard();
+}
+
+function switchTaskTab(tabName) {
+    let toRender = [];
+    if(tabName === 'all') toRender = [...allTasksCache.myTasks, ...allTasksCache.overdue, ...allTasksCache.critical];
+    if(tabName === 'my') toRender = allTasksCache.myTasks;
+    if(tabName === 'overdue') toRender = allTasksCache.overdue;
+
+    // Deduplicate
+    toRender = [...new Map(toRender.map(item => [item.Task_ID, item])).values()];
+
+    const tbody = document.getElementById('tasks-tbody');
+    if(toRender.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7">No tasks found.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    toRender.forEach(t => {
+        html += `<tr>
+            <td>${escapeHtml(t.Job_No)}</td>
+            <td>${escapeHtml(t.Stage)}</td>
+            <td><span class="badge ${t.Priority==='Critical'?'bg-danger':''}">${escapeHtml(t.Priority)}</span></td>
+            <td>${escapeHtml(t.Status)}</td>
+            <td>${escapeHtml(t.Assigned_Role)}</td>
+            <td>${new Date(t.Due_Date).toLocaleDateString()}</td>
+            <td><button class="btn btn-primary" onclick="markTaskComplete('${escapeHtml(t.Task_ID)}')">Complete</button></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function markTaskComplete(id) {
+    google.script.run.withSuccessHandler(() => {
+        alert("Task marked complete");
+        initTasks();
+    }).completeTask(id);
+}
+</script>

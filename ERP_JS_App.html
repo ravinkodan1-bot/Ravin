@@ -1,0 +1,47 @@
+<script>
+let currentUser = null;
+function escapeHtml(unsafe) {
+    if(unsafe === null || unsafe === undefined) return '';
+    return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+document.addEventListener('DOMContentLoaded', () => {
+    google.script.run.withSuccessHandler(user => {
+        currentUser = user;
+        document.getElementById('user-name-display').innerText = user.name;
+        document.getElementById('user-role-badge').innerText = user.role;
+        applyRBAC(user.role);
+        initDashboard();
+    }).getCurrentUser();
+});
+
+function applyRBAC(role) {
+    const modules = {
+        'Admin': ['dashboard','shipments','tasks','reports'],
+        'Management': ['dashboard','reports'],
+        'Import Team': ['shipments','tasks'],
+        'Accounts Team': ['reports'], // Simplified for demonstration
+        'Read Only': ['dashboard']
+    };
+
+    const allowed = modules[role] || ['dashboard'];
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const target = link.getAttribute('data-target');
+        if(!allowed.includes(target)) {
+            link.parentElement.style.display = 'none';
+        }
+    });
+}
+
+function navigate(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
+    document.getElementById('view-' + viewId).style.display = 'block';
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.nav-link[data-target="${viewId}"]`)?.classList.add('active');
+
+    if(viewId === 'dashboard') initDashboard();
+    if(viewId === 'shipments') loadShipments();
+    if(viewId === 'tasks') initTasks();
+    if(viewId === 'search') document.getElementById('searchInput').focus();
+}
+</script>
