@@ -1,0 +1,626 @@
+<script>
+let currentUser = null;
+
+function escapeHtml(unsafe) {
+    if(unsafe === null || unsafe === undefined) return '';
+    return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    google.script.run.withSuccessHandler(user => {
+        currentUser = user;
+        document.getElementById('user-name-display').innerText = user.name;
+        document.getElementById('user-role-badge').innerText = user.role;
+        applyRBAC(user.role);
+        // Default route
+        if(user.role === 'CHA') {
+            navigate('shipments');
+        } else {
+            navigate('dashboard');
+        }
+    }).getCurrentUser();
+});
+
+function applyRBAC(role) {
+    const modules = {
+        'Admin': ['dashboard','shipments','tasks','payments','masters','search'],
+        'Management': ['dashboard','shipments','payments','masters','search'],
+        'Import Team': ['dashboard','shipments','tasks','payments','search'],
+        'Accounts Team': ['dashboard','payments','search'],
+        'CHA': ['shipments','tasks','search'],
+        'Read Only': ['dashboard', 'search']
+    };
+
+    const allowed = modules[role] || ['dashboard', 'search'];
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        const target = link.getAttribute('data-target');
+        if(!allowed.includes(target)) {
+            link.parentElement.style.display = 'none';
+        }
+    });
+}
+
+function navigate(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
+    document.getElementById('view-' + viewId).style.display = 'block';
+    document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+
+    const activeLink = document.querySelector(`.nav-link[data-target="${viewId}"]`);
+    if(activeLink) activeLink.classList.add('active');
+
+    // Call init functions when routing (Stubs for now)
+    if(viewId === 'search') document.getElementById('global-search-input').focus();
+    if(viewId === 'dashboard') loadDashboard();
+    if(viewId === 'shipments') loadShipments();
+    if(viewId === 'masters') loadMasters();
+}
+
+// Global Search
+function executeSearch() {
+    const q = document.getElementById('global-search-input').value;
+    if(q.length < 3) return alert('Enter at least 3 characters');
+    const container = document.getElementById('search-results-container');
+    container.innerHTML = 'Searching...';
+
+    google.script.run.withSuccessHandler(results => {
+        if(results.length === 0) {
+            container.innerHTML = '<p>No results found.</p>';
+            return;
+        }
+        let html = '<table class="table"><tr><th>Job No</th><th>BL No</th><th>Importer</th><th>Stage</th><th>ETA</th><th>Action</th></tr>';
+        results.forEach(r => {
+            html += `<tr>
+                <td>${escapeHtml(r.Job_No)}</td>
+                <td>${escapeHtml(r.BL_No)}</td>
+                <td>${escapeHtml(r.Importer)}</td>
+                <td>${escapeHtml(r.Current_Stage)}</td>
+                <td>${r.ETA_POD ? new Date(r.ETA_POD).toLocaleDateString() : ''}</td>
+                <td><button class="btn btn-sm btn-info" onclick="openShipmentModal('${escapeHtml(r.Job_No)}')">Edit</button> <button class="btn btn-sm btn-secondary" onclick="openDocsModal('${escapeHtml(r.Job_No)}')">Docs</button></td>
+            </tr>`;
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    }).globalSearch(q);
+}
+
+function viewShipmentDetails(jobNo) {
+    // Stub for navigating to a detailed shipment view
+    alert("Navigating to complete shipment history for: " + jobNo);
+}
+</script>
+
+/* ---------------------------------------------------------
+   SHIPMENTS & CONTAINERS LOGIC
+--------------------------------------------------------- */
+function loadShipments() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('shipments-tbody');
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9">No active shipments found.</td></tr>';
+            return;
+        }
+        let html = '';
+        data.forEach(s => {
+            html += `<tr>
+                <td>${escapeHtml(s.Job_No)}</td>
+                <td>${escapeHtml(s.Importer)}</td>
+                <td>${escapeHtml(s.Supplier)}</td>
+                <td>${escapeHtml(s.CHA_Name)}</td>
+                <td>${escapeHtml(s.BL_No)}</td>
+                <td><span class="badge" style="background:var(--info)">${escapeHtml(s.Current_Stage)}</span></td>
+                <td>${s.ETA_POD ? new Date(s.ETA_POD).toLocaleDateString() : ''}</td>
+                <td>${s.Delivery_Date ? new Date(s.Delivery_Date).toLocaleDateString() : 'Pending'}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editShipment('${escapeHtml(s.Job_No)}')">Edit</button>
+                    <button class="btn btn-sm btn-secondary" onclick="viewTimeline('${escapeHtml(s.Job_No)}')">Timeline</button>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }).getActiveShipments();
+}
+
+function loadDropdownsForShipment() {
+    google.script.run.withSuccessHandler(entities => {
+        const imp = document.getElementById('s_importer');
+        const sup = document.getElementById('s_supplier');
+        const cha = document.getElementById('s_cha');
+
+        imp.innerHTML = '<option value="">Select...</option>';
+        sup.innerHTML = '<option value="">Select...</option>';
+        cha.innerHTML = '<option value="">Select...</option>';
+
+        entities.forEach(e => {
+            if(e.Type === 'Importer') imp.innerHTML += `<option value="${escapeHtml(e.Name)}">${escapeHtml(e.Name)}</option>`;
+            if(e.Type === 'Supplier') sup.innerHTML += `<option value="${escapeHtml(e.Name)}">${escapeHtml(e.Name)}</option>`;
+            if(e.Type === 'CHA') cha.innerHTML += `<option value="${escapeHtml(e.Name)}">${escapeHtml(e.Name)}</option>`;
+        });
+    }).getBatchData("ENTITIES"); // Using our generic batch getter
+}
+
+function openShipmentModal() {
+    document.getElementById('s_isEdit').value = 'false';
+    document.getElementById('s_jobNo').readOnly = false;
+    document.getElementById('s_jobNo').value = '';
+    document.getElementById('containers-section').style.display = 'none';
+    loadDropdownsForShipment();
+    document.getElementById('shipment-modal').style.display = 'flex';
+}
+
+function closeShipmentModal() {
+    document.getElementById('shipment-modal').style.display = 'none';
+}
+
+function submitShipment() {
+    const data = {
+        isEdit: document.getElementById('s_isEdit').value === 'true',
+        Job_No: document.getElementById('s_jobNo').value,
+        PI_Date: document.getElementById('s_piDate').value,
+        Importer: document.getElementById('s_importer').value,
+        Supplier: document.getElementById('s_supplier').value,
+        CHA_Name: document.getElementById('s_cha').value,
+        Shipping_Line: document.getElementById('s_shipLine').value,
+        Origin: document.getElementById('s_origin').value,
+        POD: document.getElementById('s_pod').value,
+        Invoice_No: document.getElementById('s_invNo').value,
+        Invoice_Value: document.getElementById('s_invVal').value,
+        Quantity: document.getElementById('s_qty').value,
+        BL_No: document.getElementById('s_blNo').value,
+        BE_No: document.getElementById('s_beNo').value,
+        BE_Date: document.getElementById('s_beDate').value,
+        ETA_POD: document.getElementById('s_etaPod').value,
+        ETA_CFS: document.getElementById('s_etaCfs').value,
+        Delivery_Date: document.getElementById('s_delDate').value,
+        Current_Stage: document.getElementById('s_stage').value,
+        Duty_Status: document.getElementById('s_dutyStatus').value,
+        Payment_Status: document.getElementById('s_payStatus').value,
+        Shipment_Status: document.getElementById('s_shipStatus').value,
+        Remarks: document.getElementById('s_remarks').value,
+        Created_By: document.getElementById('s_created_by').value,
+        Created_Date: document.getElementById('s_created_date').value
+    };
+
+    if(!data.Job_No) return alert('Job No is required');
+
+    google.script.run.withSuccessHandler(() => {
+        closeShipmentModal();
+        loadShipments();
+    }).saveShipment(data);
+}
+
+function editShipment(jobNo) {
+    loadDropdownsForShipment();
+    google.script.run.withSuccessHandler(s => {
+        document.getElementById('s_isEdit').value = 'true';
+        document.getElementById('s_jobNo').value = s.Job_No;
+        document.getElementById('s_jobNo').readOnly = true;
+
+        // Date formatting helper
+        const formatDate = (dStr) => {
+            if(!dStr) return '';
+            const d = new Date(dStr);
+            return isNaN(d) ? '' : d.toISOString().split('T')[0];
+        };
+
+        document.getElementById('s_piDate').value = formatDate(s.PI_Date);
+        document.getElementById('s_importer').value = s.Importer;
+        document.getElementById('s_supplier').value = s.Supplier;
+        document.getElementById('s_cha').value = s.CHA_Name;
+        document.getElementById('s_shipLine').value = s.Shipping_Line;
+        document.getElementById('s_origin').value = s.Origin;
+        document.getElementById('s_pod').value = s.POD;
+        document.getElementById('s_invNo').value = s.Invoice_No;
+        document.getElementById('s_invVal').value = s.Invoice_Value;
+        document.getElementById('s_qty').value = s.Quantity;
+        document.getElementById('s_blNo').value = s.BL_No;
+        document.getElementById('s_beNo').value = s.BE_No;
+        document.getElementById('s_beDate').value = formatDate(s.BE_Date);
+        document.getElementById('s_etaPod').value = formatDate(s.ETA_POD);
+        document.getElementById('s_etaCfs').value = formatDate(s.ETA_CFS);
+        document.getElementById('s_delDate').value = formatDate(s.Delivery_Date);
+        document.getElementById('s_stage').value = s.Current_Stage;
+        document.getElementById('s_dutyStatus').value = s.Duty_Status;
+        document.getElementById('s_payStatus').value = s.Payment_Status;
+        document.getElementById('s_shipStatus').value = s.Shipment_Status;
+        document.getElementById('s_remarks').value = s.Remarks;
+        document.getElementById('s_created_by').value = s.Created_By;
+        document.getElementById('s_created_date').value = s.Created_Date;
+
+        // Render Containers
+        document.getElementById('containers-section').style.display = 'block';
+        renderContainersList(s.Job_No, s.containers);
+
+        document.getElementById('shipment-modal').style.display = 'flex';
+    }).getShipmentDetails(jobNo);
+}
+
+function renderContainersList(jobNo, containers) {
+    document.getElementById('c_jobNo').value = jobNo;
+    const cl = document.getElementById('containers-list');
+    if(!containers || containers.length === 0) {
+        cl.innerHTML = '<p>No containers added yet.</p>';
+        return;
+    }
+    let html = '<table class="table" style="font-size:12px;"><tr><th>Container No</th><th>Type</th><th>Size</th><th>Dispatch Status</th><th>Vehicle No</th><th>Action</th></tr>';
+    containers.forEach(c => {
+        // Escaping handled inline
+        html += `<tr>
+            <td>${escapeHtml(c.Container_No)}</td>
+            <td>${escapeHtml(c.Type)}</td>
+            <td>${escapeHtml(c.Size)}</td>
+            <td>${escapeHtml(c.Dispatch_Status)}</td>
+            <td>${escapeHtml(c.Vehicle_No)}</td>
+            <td><button class="btn btn-sm btn-secondary" onclick='editContainer(${JSON.stringify(c).replace(/'/g, "&#39;")})'>Edit</button></td>
+        </tr>`;
+    });
+    html += '</table>';
+    cl.innerHTML = html;
+}
+
+function openContainerModal() {
+    document.getElementById('c_id').value = '';
+    document.getElementById('c_no').value = '';
+    document.getElementById('c_type').value = '';
+    document.getElementById('c_size').value = '';
+    document.getElementById('c_disp').value = 'Pending';
+    document.getElementById('c_veh').value = '';
+    document.getElementById('container-modal').style.display = 'flex';
+}
+
+function closeContainerModal() {
+    document.getElementById('container-modal').style.display = 'none';
+}
+
+function editContainer(c) {
+    document.getElementById('c_id').value = c.ID;
+    document.getElementById('c_no').value = c.Container_No;
+    document.getElementById('c_type').value = c.Type;
+    document.getElementById('c_size').value = c.Size;
+    document.getElementById('c_disp').value = c.Dispatch_Status;
+    document.getElementById('c_veh').value = c.Vehicle_No;
+    document.getElementById('container-modal').style.display = 'flex';
+}
+
+function submitContainer() {
+    const data = {
+        ID: document.getElementById('c_id').value,
+        Job_No: document.getElementById('c_jobNo').value,
+        Container_No: document.getElementById('c_no').value,
+        Type: document.getElementById('c_type').value,
+        Size: document.getElementById('c_size').value,
+        Dispatch_Status: document.getElementById('c_disp').value,
+        Vehicle_No: document.getElementById('c_veh').value,
+        // Optional/omitted fields pass as empty to prevent overwrites
+        Arrival_Date: "", Gate_Out_Date: "", Driver_Name: "", Delivery_Status: ""
+    };
+
+    if(!data.Container_No) return alert('Container No required');
+
+    google.script.run.withSuccessHandler(() => {
+        closeContainerModal();
+        editShipment(data.Job_No); // Refresh parent modal
+    }).saveContainer(data);
+}
+
+/* ---------------------------------------------------------
+   DASHBOARD LOGIC
+--------------------------------------------------------- */
+function loadDashboard() {
+    google.script.run.withSuccessHandler(data => {
+        document.getElementById('dash_delayed').innerText = data.delayed;
+        document.getElementById('dash_duty').innerText = data.dutyPending;
+        document.getElementById('dash_do').innerText = data.doExpiring;
+        document.getElementById('dash_ready').innerText = data.readyForDelivery;
+        document.getElementById('dash_actions').innerText = data.todaysActions;
+
+        document.getElementById('dash_money').innerText = data.moneyBlocked.toLocaleString(undefined, {minimumFractionDigits:2});
+        document.getElementById('dash_payCount').innerText = data.pendingPaymentsCount;
+        document.getElementById('dash_payAppr').innerText = data.approvedPending;
+        document.getElementById('dash_payOut').innerText = data.totalOutstanding.toLocaleString(undefined, {minimumFractionDigits:2});
+
+        const healthBadge = document.getElementById('dash_health');
+        healthBadge.innerText = `${data.healthScore} (${data.healthLabel})`;
+        healthBadge.style.background = data.healthScore >= 90 ? 'var(--success)' : (data.healthScore >= 75 ? 'var(--info)' : (data.healthScore >= 60 ? 'var(--warning)' : 'var(--danger)'));
+
+        let chaHtml = '';
+        data.chaRankings.slice(0, 5).forEach(c => {
+            chaHtml += `<tr><td>${escapeHtml(c.name)}</td><td>${c.score.toFixed(1)}</td><td>${c.avgClearance.toFixed(1)}</td></tr>`;
+        });
+        document.getElementById('dash_chaRanking').innerHTML = chaHtml || '<tr><td colspan="3">No data available</td></tr>';
+
+    }).getDashboardData();
+}
+
+/* ---------------------------------------------------------
+   TASKS & TIMELINE LOGIC
+--------------------------------------------------------- */
+function loadTasks() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('tasks-tbody');
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7">No tasks found.</td></tr>';
+            return;
+        }
+        let html = '';
+        data.forEach(t => {
+            const prioColor = t.Priority === 'Critical' ? 'var(--danger)' : (t.Priority === 'High' ? 'var(--warning)' : 'var(--secondary)');
+            html += `<tr>
+                <td>${escapeHtml(t.Job_No)}</td>
+                <td>${escapeHtml(t.Task_Name)}<br><small style="color:#666">${escapeHtml(t.Follow_Up_Notes||'')}</small></td>
+                <td><strong style="color:${prioColor}">${escapeHtml(t.Priority)}</strong></td>
+                <td>${escapeHtml(t.Assigned_To)}</td>
+                <td>${new Date(t.Due_Date).toLocaleDateString()}</td>
+                <td>${escapeHtml(t.Status)}</td>
+                <td>
+                    <select class="form-control" style="width:120px; display:inline-block; padding:4px;" onchange="resolveTask('${escapeHtml(t.ID)}', this.value)">
+                        <option value="">Update...</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }).getTasks();
+}
+
+function resolveTask(id, status) {
+    if(!status) return;
+    const notes = prompt("Enter follow-up notes (optional):");
+    google.script.run.withSuccessHandler(() => {
+        loadTasks();
+    }).updateTaskStatus(id, status, notes);
+}
+
+function viewTimeline(jobNo) {
+    document.getElementById('tl_jobNo').innerText = jobNo;
+    document.getElementById('timeline-modal').style.display = 'flex';
+    document.getElementById('tl_content').innerHTML = 'Loading timeline...';
+
+    google.script.run.withSuccessHandler(data => {
+        let html = '';
+        if(data.length === 0) html = '<p>No timeline events recorded.</p>';
+        data.forEach(t => {
+            const color = t.Status === 'Completed' ? 'var(--success)' : (t.Status === 'Delayed' ? 'var(--danger)' : 'var(--info)');
+            html += `<div style="margin-bottom:15px; position:relative;">
+                <div style="position:absolute; left:-21px; top:5px; width:10px; height:10px; border-radius:50%; background:${color};"></div>
+                <strong>${escapeHtml(t.Event_Name)}</strong> - <small>${new Date(t.Event_Date).toLocaleDateString()}</small><br>
+                <span style="color:${color}; font-size:12px;">${escapeHtml(t.Status)}</span>
+                ${t.Delay_Days > 0 ? `<span style="color:var(--danger); font-size:12px; margin-left:10px;">Delayed by ${t.Delay_Days} days</span>` : ''}
+            </div>`;
+        });
+        document.getElementById('tl_content').innerHTML = html;
+    }).getTimeline(jobNo);
+}
+
+/* ---------------------------------------------------------
+   PAYMENTS LOGIC
+--------------------------------------------------------- */
+function loadPayments() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('payments-tbody');
+        if(data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7">No payment records found.</td></tr>';
+            return;
+        }
+        let html = '';
+        data.forEach(p => {
+            let actionBtn = '';
+            // Determine action based on role and current status
+            if(p.Status === 'Draft' && ['Import Team', 'Admin'].includes(currentUser.role)) {
+                actionBtn = `<button class="btn btn-sm btn-info" onclick="advancePayment('${p.ID}', 'Requested')">Submit Request</button>`;
+            } else if(p.Status === 'Requested' && ['Management', 'Admin'].includes(currentUser.role)) {
+                actionBtn = `<button class="btn btn-sm btn-warning" onclick="advancePayment('${p.ID}', 'Approved')">Approve</button>`;
+            } else if(p.Status === 'Approved' && ['Accounts Team', 'Admin'].includes(currentUser.role)) {
+                actionBtn = `<button class="btn btn-sm btn-success" onclick="advancePayment('${p.ID}', 'Paid')">Mark Paid</button>`;
+            }
+
+            html += `<tr>
+                <td>${escapeHtml(p.Job_No)}</td>
+                <td>${escapeHtml(p.Payment_Type)}</td>
+                <td>${escapeHtml(p.Vendor)}</td>
+                <td>₹${Number(p.Amount).toLocaleString()}</td>
+                <td><strong style="color:var(--danger)">₹${Number(p.Outstanding_Amount||p.Amount).toLocaleString()}</strong></td>
+                <td><span class="badge" style="background:var(--secondary)">${escapeHtml(p.Status)}</span></td>
+                <td>${actionBtn}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+
+        // Hide create button for CHA/ReadOnly
+        if(['CHA', 'Read Only'].includes(currentUser.role)) {
+            document.getElementById('btn-new-payment').style.display = 'none';
+        }
+    }).getPayments();
+}
+
+function advancePayment(id, nextStatus) {
+    if(!confirm(`Move payment to ${nextStatus}?`)) return;
+    google.script.run.withSuccessHandler(() => {
+        loadPayments();
+    }).savePayment({ID: id, Status: nextStatus});
+}
+
+function openPaymentModal() {
+    document.getElementById('p_jobNo').value = '';
+    document.getElementById('p_vendor').value = '';
+    document.getElementById('p_amount').value = '';
+    document.getElementById('p_remarks').value = '';
+    document.getElementById('payment-modal').style.display = 'flex';
+}
+
+function closePaymentModal() {
+    document.getElementById('payment-modal').style.display = 'none';
+}
+
+function submitPaymentDraft() {
+    const data = {
+        Job_No: document.getElementById('p_jobNo').value,
+        Payment_Type: document.getElementById('p_type').value,
+        Vendor: document.getElementById('p_vendor').value,
+        Amount: document.getElementById('p_amount').value,
+        Remarks: document.getElementById('p_remarks').value
+    };
+    if(!data.Job_No || !data.Amount) return alert('Job No and Amount required.');
+
+    google.script.run.withSuccessHandler(() => {
+        closePaymentModal();
+        loadPayments();
+    }).savePayment(data);
+}
+
+/* ---------------------------------------------------------
+   DOCUMENT MANAGEMENT LOGIC
+--------------------------------------------------------- */
+function openDocsModal(jobNo) {
+    document.getElementById('doc_jobNo_display').innerText = jobNo;
+    document.getElementById('doc_jobNo').value = jobNo;
+    document.getElementById('docs-modal').style.display = 'flex';
+    document.getElementById('existing-docs').innerHTML = 'Loading...';
+
+    // Check if Read Only role prevents exec summary generation
+    if(currentUser.role === 'Read Only') {
+        document.getElementById('exec_btn').style.display = 'none';
+        document.getElementById('upload_btn').style.display = 'none';
+        document.getElementById('doc_file').style.display = 'none';
+    }
+
+    google.script.run.withSuccessHandler(docs => {
+        if(docs.length === 0) {
+            document.getElementById('existing-docs').innerHTML = 'No documents uploaded yet.';
+            return;
+        }
+        let html = '<ul style="list-style-type:none; padding:0;">';
+        docs.forEach(d => {
+            const expStr = d.Expiry_Date ? ` (Exp: <span style="color:var(--danger)">${new Date(d.Expiry_Date).toLocaleDateString()}</span>)` : '';
+            html += `<li style="margin-bottom:8px; padding:8px; background:#f8f9fa; border-radius:4px;">
+                <strong>${escapeHtml(d.Doc_Type)}</strong>: <a href="${escapeHtml(d.URL)}" target="_blank" style="color:var(--primary)">View</a> ${expStr}
+            </li>`;
+        });
+        html += '</ul>';
+        document.getElementById('existing-docs').innerHTML = html;
+    }).getShipmentDocs(jobNo);
+}
+
+function uploadDoc() {
+    const jobNo = document.getElementById('doc_jobNo').value;
+    const type = document.getElementById('doc_type').value;
+    const expiry = document.getElementById('doc_expiry').value;
+    const fileInput = document.getElementById('doc_file');
+
+    if(!fileInput.files.length) return alert('Please select a file to upload.');
+    const file = fileInput.files[0];
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = e.target.result.split(',')[1];
+        const mimeType = file.type;
+        const name = file.name;
+
+        document.getElementById('upload_btn').innerText = 'Uploading...';
+        document.getElementById('upload_btn').disabled = true;
+
+        google.script.run.withSuccessHandler(() => {
+            document.getElementById('upload_btn').innerText = 'Upload';
+            document.getElementById('upload_btn').disabled = false;
+            document.getElementById('doc_file').value = '';
+            document.getElementById('doc_expiry').value = '';
+            openDocsModal(jobNo); // refresh list
+        }).uploadDocumentToDrive(jobNo, type, name, mimeType, data, expiry);
+    };
+    reader.readAsDataURL(file);
+}
+
+function generateExecSummary() {
+    const jobNo = document.getElementById('doc_jobNo').value;
+    document.getElementById('exec_btn').innerText = 'Generating...';
+    document.getElementById('exec_btn').disabled = true;
+
+    google.script.run.withSuccessHandler(url => {
+        document.getElementById('exec_btn').innerText = 'Exec Summary PDF';
+        document.getElementById('exec_btn').disabled = false;
+        if(url) {
+            window.open(url, '_blank');
+        } else {
+            alert("Failed to generate PDF");
+        }
+    }).generateExecutiveSummary(jobNo);
+}
+
+// Attach docs button to shipment search results
+function viewShipmentDetails(jobNo) {
+    openDocsModal(jobNo);
+}
+
+/* ---------------------------------------------------------
+   MASTERS LOGIC & CHA PORTAL
+--------------------------------------------------------- */
+function loadMasters() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('masters-tbody');
+        const filter = document.getElementById('m_filter').value;
+
+        let filtered = data;
+        if(filter !== 'All') filtered = data.filter(d => d.Type === filter);
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">No entities found.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        filtered.forEach(e => {
+            html += `<tr>
+                <td>${escapeHtml(e.Type)}</td>
+                <td>${escapeHtml(e.Name)}</td>
+                <td>${escapeHtml(e.Email)}</td>
+                <td>${escapeHtml(e.Contact)}</td>
+                <td><span class="badge" style="background:${e.IS_ACTIVE === true || String(e.IS_ACTIVE).toUpperCase() === 'TRUE' ? 'var(--success)' : 'var(--danger)'}">${e.IS_ACTIVE === true || String(e.IS_ACTIVE).toUpperCase() === 'TRUE' ? 'Active' : 'Inactive'}</span></td>
+                <td><button class="btn btn-sm btn-secondary" onclick='editEntity(${JSON.stringify(e).replace(/'/g, "&#39;")})'>Edit</button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }).getEntities();
+}
+
+function openEntityModal() {
+    document.getElementById('e_id').value = '';
+    document.getElementById('e_type').value = 'Importer';
+    document.getElementById('e_name').value = '';
+    document.getElementById('e_email').value = '';
+    document.getElementById('e_contact').value = '';
+    document.getElementById('e_active').value = 'true';
+    document.getElementById('entity-modal').style.display = 'flex';
+}
+
+function closeEntityModal() {
+    document.getElementById('entity-modal').style.display = 'none';
+}
+
+function editEntity(e) {
+    document.getElementById('e_id').value = e.ID;
+    document.getElementById('e_type').value = e.Type;
+    document.getElementById('e_name').value = e.Name;
+    document.getElementById('e_email').value = e.Email;
+    document.getElementById('e_contact').value = e.Contact;
+    document.getElementById('e_active').value = (e.IS_ACTIVE === true || String(e.IS_ACTIVE).toUpperCase() === 'TRUE') ? 'true' : 'false';
+    document.getElementById('entity-modal').style.display = 'flex';
+}
+
+function submitEntity() {
+    const data = {
+        ID: document.getElementById('e_id').value,
+        Type: document.getElementById('e_type').value,
+        Name: document.getElementById('e_name').value,
+        Email: document.getElementById('e_email').value,
+        Contact: document.getElementById('e_contact').value,
+        IS_ACTIVE: document.getElementById('e_active').value === 'true'
+    };
+    if(!data.Name) return alert("Name is required");
+    google.script.run.withSuccessHandler(() => {
+        closeEntityModal();
+        loadMasters();
+    }).saveEntity(data);
+}
+</script>
