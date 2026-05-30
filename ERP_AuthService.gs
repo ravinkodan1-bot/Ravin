@@ -6,7 +6,13 @@ function getCurrentUser() {
     const ss = SpreadsheetApp.openById(dbId);
     const data = ss.getSheetByName("USERS").getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
-      if (data[i][1] === email && data[i][4] === true) return { id: data[i][0], email: data[i][1], role: data[i][2], name: data[i][3] };
+      const isActive = data[i][4];
+      const emailMatches = (data[i][1] || "").toLowerCase() === email.toLowerCase();
+      const isActiveMatches = isActive === true || (typeof isActive === 'string' && (isActive.toUpperCase() === 'TRUE' || isActive.toUpperCase() === 'YES'));
+
+      if (emailMatches && isActiveMatches) {
+          return { id: data[i][0], email: data[i][1], role: data[i][2], name: data[i][3] };
+      }
     }
   } catch(e) {}
   return { email: email, role: "Read Only", name: email.split('@')[0] };
