@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Operations ERP</title>
+    <?!= include('CSS'); ?>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar Navigation -->
+        <aside id="sidebar">
+            <div class="sidebar-logo"><h3>Import ERP</h3></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="#" onclick="navigate('dashboard')" class="nav-link active" data-target="dashboard">Dashboard</a></li>
+                    <li><a href="#" onclick="navigate('shipments')" class="nav-link" data-target="shipments">Shipments</a></li>
+                    <li><a href="#" onclick="navigate('tasks')" class="nav-link" data-target="tasks">Tasks</a></li>
+                    <li><a href="#" onclick="navigate('payments')" class="nav-link" data-target="payments">Payments</a></li>
+                    <li><a href="#" onclick="navigate('masters')" class="nav-link" data-target="masters">Masters</a></li>
+                    <li><a href="#" onclick="navigate('search')" class="nav-link" data-target="search">Global Search</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Header Bar -->
+            <header id="header">
+                <div class="header-search">
+                    <input type="text" id="quick-search" placeholder="Quick Search Job No..." onkeyup="if(event.keyCode===13) { navigate('search'); document.getElementById('global-search-input').value = this.value; executeSearch(); }">
+                </div>
+                <div class="header-user">
+                    <span id="user-name-display">Loading...</span>
+                    <span id="user-role-badge" class="badge"></span>
+                </div>
+            </header>
+
+            <!-- Views -->
+            <div id="view-dashboard" class="view-section active">
+                <h2>Dashboard Loading...</h2>
+            </div>
+
+            <div id="view-shipments" class="view-section" style="display:none;">
+                <h2>Shipments UI Pending</h2>
+            </div>
+
+            <div id="view-tasks" class="view-section" style="display:none;">
+                <h2>Tasks UI Pending</h2>
+            </div>
+
+            <div id="view-payments" class="view-section" style="display:none;">
+                <h2>Payments UI Pending</h2>
+            </div>
+
+            <div id="view-masters" class="view-section" style="display:none;">
+                <h2>Masters UI Pending</h2>
+            </div>
+
+            <!-- Global Search View -->
+            <div id="view-search" class="view-section" style="display:none;">
+                <div class="panel">
+                    <div class="panel-header"><h2>Global Search</h2></div>
+                    <div class="form-group mb-3 mt-3">
+                        <input type="text" id="global-search-input" class="form-control" placeholder="Search Job No, BL, Invoice, Container, BE No..." style="width:100%; padding:10px; font-size:16px;">
+                        <button class="btn btn-primary mt-2" onclick="executeSearch()">Search</button>
+                    </div>
+                    <div id="search-results-container" class="mt-3"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modals Container -->
+    <div id="modals-container"></div>
+
+    <?!= include('Javascript'); ?>
+</body>
+</html>
+
+<!-- SHIPMENTS UI INJECTIONS -->
+<script>
+// We append this UI chunk dynamically to keep Index.html manageable
+const shipmentsUI = `
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Shipments Manager</h2>
+        <button class="btn btn-primary" onclick="openShipmentModal()" id="btn-new-shipment">+ New Shipment</button>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table" id="shipments-table">
+            <thead>
+                <tr>
+                    <th>Job No</th>
+                    <th>Importer</th>
+                    <th>Supplier</th>
+                    <th>CHA</th>
+                    <th>BL No</th>
+                    <th>Stage</th>
+                    <th>ETA</th>
+                    <th>Delivery</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="shipments-tbody">
+                <tr><td colspan="9">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Shipment Form Modal -->
+<div id="shipment-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:800px; max-width:95%; max-height:90vh; overflow-y:auto;">
+        <h3>Shipment Details</h3>
+        <input type="hidden" id="s_isEdit" value="false">
+        <input type="hidden" id="s_created_by">
+        <input type="hidden" id="s_created_date">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
+            <div class="form-group"><label>Job No</label><input type="text" id="s_jobNo" class="form-control"></div>
+            <div class="form-group"><label>PI Date</label><input type="date" id="s_piDate" class="form-control"></div>
+            <div class="form-group"><label>Importer</label><select id="s_importer" class="form-control"><option value="">Select...</option></select></div>
+            <div class="form-group"><label>Supplier</label><select id="s_supplier" class="form-control"><option value="">Select...</option></select></div>
+            <div class="form-group"><label>CHA Name</label><select id="s_cha" class="form-control"><option value="">Select...</option></select></div>
+            <div class="form-group"><label>Shipping Line</label><input type="text" id="s_shipLine" class="form-control"></div>
+            <div class="form-group"><label>Origin</label><input type="text" id="s_origin" class="form-control"></div>
+            <div class="form-group"><label>POD</label><input type="text" id="s_pod" class="form-control"></div>
+            <div class="form-group"><label>Invoice No</label><input type="text" id="s_invNo" class="form-control"></div>
+            <div class="form-group"><label>Invoice Value</label><input type="number" id="s_invVal" class="form-control"></div>
+            <div class="form-group"><label>Quantity</label><input type="number" id="s_qty" class="form-control"></div>
+            <div class="form-group"><label>BL No</label><input type="text" id="s_blNo" class="form-control"></div>
+            <div class="form-group"><label>BE No</label><input type="text" id="s_beNo" class="form-control"></div>
+            <div class="form-group"><label>BE Date</label><input type="date" id="s_beDate" class="form-control"></div>
+            <div class="form-group"><label>ETA POD</label><input type="date" id="s_etaPod" class="form-control"></div>
+            <div class="form-group"><label>ETA CFS</label><input type="date" id="s_etaCfs" class="form-control"></div>
+            <div class="form-group"><label>Delivery Date</label><input type="date" id="s_delDate" class="form-control"></div>
+            <div class="form-group"><label>Current Stage</label>
+                <select id="s_stage" class="form-control">
+                    <option value="Shipment Booked">Shipment Booked</option>
+                    <option value="ETA Updated">ETA Updated</option>
+                    <option value="Original Documents Received">Original Documents Received</option>
+                    <option value="IGM Filed">IGM Filed</option>
+                    <option value="BOE Filed">BOE Filed</option>
+                    <option value="Duty Planned">Duty Planned</option>
+                    <option value="Duty Paid">Duty Paid</option>
+                    <option value="OOC Received">OOC Received</option>
+                    <option value="Shipping Line Paid">Shipping Line Paid</option>
+                    <option value="DO Released">DO Released</option>
+                    <option value="Dispatch Planned">Dispatch Planned</option>
+                    <option value="Goods Dispatched">Goods Dispatched</option>
+                    <option value="Delivered">Delivered</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Duty Status</label><select id="s_dutyStatus" class="form-control"><option value="Pending">Pending</option><option value="Paid">Paid</option></select></div>
+            <div class="form-group"><label>Payment Status</label><select id="s_payStatus" class="form-control"><option value="Pending">Pending</option><option value="Clear">Clear</option></select></div>
+            <div class="form-group"><label>Shipment Status</label><select id="s_shipStatus" class="form-control"><option value="Active">Active</option><option value="Completed">Completed</option><option value="Delayed">Delayed</option></select></div>
+            <div class="form-group"><label>Remarks</label><input type="text" id="s_remarks" class="form-control"></div>
+        </div>
+
+        <!-- Nested Containers UI (Only visible when editing) -->
+        <div id="containers-section" style="display:none; margin-top:20px; border-top:1px solid #ccc; padding-top:15px;">
+            <div style="display:flex; justify-content:space-between;">
+                <h4>Containers</h4>
+                <button class="btn btn-sm btn-secondary" onclick="openContainerModal()">+ Add Container</button>
+            </div>
+            <div id="containers-list" class="mt-2"></div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button class="btn" style="background:#ddd; color:#333;" onclick="closeShipmentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitShipment()">Save Shipment</button>
+        </div>
+    </div>
+</div>
+
+<!-- Container Modal -->
+<div id="container-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1001; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:400px;">
+        <h4>Container Details</h4>
+        <input type="hidden" id="c_id">
+        <input type="hidden" id="c_jobNo">
+        <div class="form-group mt-2"><label>Container No</label><input type="text" id="c_no" class="form-control"></div>
+        <div class="form-group mt-2"><label>Type</label><input type="text" id="c_type" class="form-control"></div>
+        <div class="form-group mt-2"><label>Size</label><input type="text" id="c_size" class="form-control"></div>
+        <div class="form-group mt-2"><label>Dispatch Status</label>
+            <select id="c_disp" class="form-control">
+                <option value="Pending">Pending</option>
+                <option value="Partial">Partial</option>
+                <option value="Dispatched">Dispatched</option>
+                <option value="Delivered">Delivered</option>
+            </select>
+        </div>
+        <div class="form-group mt-2"><label>Vehicle No</label><input type="text" id="c_veh" class="form-control"></div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button class="btn" style="background:#ddd; color:#333;" onclick="closeContainerModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitContainer()">Save Container</button>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-shipments').innerHTML = shipmentsUI;
+});
+</script>
+
+
+<!-- DASHBOARD UI INJECTIONS -->
+<script>
+const dashboardUI = `
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between;">
+        <h2>Management Dashboard</h2>
+        <div style="text-align:right;">
+            <h3 style="margin:0;">Health Score: <span id="dash_health" class="badge">Loading...</span></h3>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-top:20px;">
+        <!-- Severity Global Notification Center -->
+        <div style="padding:15px; background:var(--danger); color:white; border-radius:8px;">
+            <h4>Delayed Shipments (Critical)</h4><h2 id="dash_delayed">0</h2>
+        </div>
+        <div style="padding:15px; background:var(--warning); border-radius:8px;">
+            <h4>Duty Pending (Pending)</h4><h2 id="dash_duty">0</h2>
+        </div>
+        <div style="padding:15px; background:var(--warning); border-radius:8px;">
+            <h4>DO Expiring (Upcoming)</h4><h2 id="dash_do">0</h2>
+        </div>
+        <div style="padding:15px; background:var(--success); color:white; border-radius:8px;">
+            <h4>Ready for Delivery (Info)</h4><h2 id="dash_ready">0</h2>
+        </div>
+        <div style="padding:15px; background:var(--primary); color:white; border-radius:8px;">
+            <h4>Today's Actions (Info)</h4><h2 id="dash_actions">0</h2>
+        </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:20px;">
+        <!-- Financial & Operational Grid -->
+        <div class="panel" style="background:#f8f9fa;">
+            <h3>Financial Position</h3>
+            <hr>
+            <p><strong>Total Money Blocked:</strong> ₹<span id="dash_money">0</span></p>
+            <p><strong>Total Pending Payments:</strong> <span id="dash_payCount">0</span></p>
+            <p><strong>Approved Pending:</strong> <span id="dash_payAppr">0</span></p>
+            <p><strong>Total Outstanding Amount:</strong> ₹<span id="dash_payOut">0</span></p>
+        </div>
+
+        <div class="panel" style="background:#f8f9fa;">
+            <h3>CHA Performance (Top 5)</h3>
+            <hr>
+            <table class="table" style="font-size:12px;">
+                <tr><th>CHA</th><th>Score</th><th>Avg Days</th></tr>
+                <tbody id="dash_chaRanking"><tr><td colspan="3">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-dashboard').innerHTML = dashboardUI;
+});
+</script>
+
+<!-- TIMELINE & TASKS UI INJECTIONS -->
+<script>
+const tasksUI = `
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between;">
+        <h2>Task Management</h2>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table" id="tasks-table">
+            <thead>
+                <tr>
+                    <th>Job No</th>
+                    <th>Task</th>
+                    <th>Priority</th>
+                    <th>Assigned To</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="tasks-tbody">
+                <tr><td colspan="7">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Timeline Modal -->
+<div id="timeline-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:600px; max-width:95%;">
+        <h3>Timeline for <span id="tl_jobNo"></span></h3>
+        <div id="tl_content" style="max-height:400px; overflow-y:auto; margin-top:15px; border-left:2px solid var(--primary); padding-left:15px;">
+            Loading...
+        </div>
+        <div style="display:flex; justify-content:flex-end; margin-top:15px;">
+            <button class="btn btn-secondary" onclick="document.getElementById('timeline-modal').style.display='none'">Close</button>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-tasks').innerHTML = tasksUI;
+});
+</script>
+
+<!-- PAYMENTS UI INJECTIONS -->
+<script>
+const paymentsUI = `
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Payment Workflow</h2>
+        <button class="btn btn-primary" onclick="openPaymentModal()" id="btn-new-payment">+ New Payment Draft</button>
+    </div>
+    <div class="table-responsive mt-3">
+        <table class="table" id="payments-table">
+            <thead>
+                <tr>
+                    <th>Job No</th>
+                    <th>Type</th>
+                    <th>Vendor</th>
+                    <th>Amount</th>
+                    <th>Outstanding</th>
+                    <th>Status</th>
+                    <th>Workflow Action</th>
+                </tr>
+            </thead>
+            <tbody id="payments-tbody">
+                <tr><td colspan="7">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="payment-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+        <h3>Create Payment Draft</h3>
+        <div class="form-group mb-2"><label>Job No</label><input type="text" id="p_jobNo" class="form-control"></div>
+        <div class="form-group mb-2"><label>Payment Type</label>
+            <select id="p_type" class="form-control">
+                <option value="Duty">Duty</option>
+                <option value="Shipping Line">Shipping Line</option>
+                <option value="Transportation">Transportation</option>
+                <option value="CHA Charges">CHA Charges</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="form-group mb-2"><label>Vendor Name</label><input type="text" id="p_vendor" class="form-control"></div>
+        <div class="form-group mb-2"><label>Amount (₹)</label><input type="number" id="p_amount" class="form-control"></div>
+        <div class="form-group mb-3"><label>Remarks</label><input type="text" id="p_remarks" class="form-control"></div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn" style="background:#ddd;" onclick="closePaymentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitPaymentDraft()">Create Draft</button>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-payments').innerHTML = paymentsUI;
+});
+</script>
+
+<!-- DOCUMENTS MODAL INJECTION -->
+<script>
+const docsModalUI = `
+<div id="docs-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+        <h3>Documents for <span id="doc_jobNo_display"></span></h3>
+        <input type="hidden" id="doc_jobNo">
+        <div id="existing-docs" class="mb-3" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; padding:10px;">
+            Loading...
+        </div>
+        <hr>
+        <h4>Upload New Document</h4>
+        <div class="form-group mb-2">
+            <select id="doc_type" class="form-control">
+                <option value="PI Copy">PI Copy</option>
+                <option value="Invoice">Invoice</option>
+                <option value="Packing List">Packing List</option>
+                <option value="BL Copy">BL Copy</option>
+                <option value="BOE Copy">BOE Copy</option>
+                <option value="Duty Challan">Duty Challan</option>
+                <option value="OOC Copy">OOC Copy</option>
+                <option value="Delivery Order">Delivery Order</option>
+            </select>
+        </div>
+        <div class="form-group mb-2">
+            <label>Expiry Date (Required for DO)</label>
+            <input type="date" id="doc_expiry" class="form-control">
+        </div>
+        <div class="form-group mb-2">
+            <input type="file" id="doc_file" class="form-control">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+            <button class="btn" style="background:#ddd; color:#333;" onclick="document.getElementById('docs-modal').style.display='none'">Close</button>
+            <button class="btn btn-primary" onclick="uploadDoc()" id="upload_btn">Upload</button>
+            <button class="btn btn-success" onclick="generateExecSummary()" id="exec_btn">Exec Summary PDF</button>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('modals-container').innerHTML += docsModalUI;
+});
+</script>
+
+<!-- MASTERS UI INJECTIONS -->
+<script>
+const mastersUI = `
+<div class="panel">
+    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>Master Data Management</h2>
+        <button class="btn btn-primary" onclick="openEntityModal()">+ Add New Entity</button>
+    </div>
+    <div class="mt-3 mb-3">
+        <select id="m_filter" class="form-control" style="width:200px;" onchange="loadMasters()">
+            <option value="All">All Types</option>
+            <option value="Importer">Importer</option>
+            <option value="Supplier">Supplier</option>
+            <option value="CHA">CHA</option>
+            <option value="Port">Port</option>
+            <option value="Shipping Line">Shipping Line</option>
+        </select>
+    </div>
+    <div class="table-responsive">
+        <table class="table" id="masters-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="masters-tbody">
+                <tr><td colspan="6">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="entity-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:400px; max-width:90%;">
+        <h3>Entity Details</h3>
+        <input type="hidden" id="e_id">
+        <div class="form-group mb-2"><label>Type</label>
+            <select id="e_type" class="form-control">
+                <option value="Importer">Importer</option>
+                <option value="Supplier">Supplier</option>
+                <option value="CHA">CHA</option>
+                <option value="Port">Port</option>
+                <option value="Shipping Line">Shipping Line</option>
+            </select>
+        </div>
+        <div class="form-group mb-2"><label>Name</label><input type="text" id="e_name" class="form-control"></div>
+        <div class="form-group mb-2"><label>Email</label><input type="email" id="e_email" class="form-control"></div>
+        <div class="form-group mb-3"><label>Contact</label><input type="text" id="e_contact" class="form-control"></div>
+        <div class="form-group mb-3"><label>Active</label>
+            <select id="e_active" class="form-control">
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+            </select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn" style="background:#ddd;" onclick="closeEntityModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitEntity()">Save</button>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('view-masters').innerHTML = mastersUI;
+});
+</script>
+
+<!-- COSTING MODAL INJECTION -->
+<script>
+const costingModalUI = `
+<div id="costing-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+        <h3>Costing Details for <span id="cost_jobNo_display"></span></h3>
+        <input type="hidden" id="cost_jobNo">
+        <input type="hidden" id="cost_id">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:15px;">
+            <div class="form-group"><label>Invoice Value (INR)</label><input type="number" id="cst_inv" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Duty</label><input type="number" id="cst_duty" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Shipping Charges</label><input type="number" id="cst_ship" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Transportation</label><input type="number" id="cst_trans" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>CHA Charges</label><input type="number" id="cst_cha" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Port Charges</label><input type="number" id="cst_port" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Other Expenses</label><input type="number" id="cst_other" class="form-control" onchange="calcCosting()"></div>
+            <div class="form-group"><label>Total Units/Qty</label><input type="number" id="cst_qty" class="form-control" value="1" onchange="calcCosting()"></div>
+        </div>
+        <hr>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:15px; border-radius:5px;">
+            <div>
+                <h4>Total Landed Cost: <span id="cst_tot" style="color:var(--primary);">₹ 0</span></h4>
+                <h4>Per Unit Cost: <span id="cst_unit" style="color:var(--success);">₹ 0</span></h4>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" style="background:#ddd; color:#333;" onclick="document.getElementById('costing-modal').style.display='none'">Close</button>
+                <button class="btn btn-primary" onclick="submitCosting()" id="cst_save_btn">Save Costing</button>
+            </div>
+        </div>
+    </div>
+</div>
+`;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('modals-container').innerHTML += costingModalUI;
+});
+</script>
