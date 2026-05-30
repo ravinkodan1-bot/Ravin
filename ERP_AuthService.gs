@@ -7,8 +7,8 @@ function getCurrentUser() {
     const data = ss.getSheetByName("USERS").getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       const isActive = data[i][4];
-      const emailMatches = (data[i][1] || "").toLowerCase() === email.toLowerCase();
-      const isActiveMatches = isActive === true || (typeof isActive === 'string' && (isActive.toUpperCase() === 'TRUE' || isActive.toUpperCase() === 'YES'));
+      const emailMatches = (data[i][1] || "").toString().trim().toLowerCase() === email.trim().toLowerCase();
+      const isActiveMatches = isActive === true || (typeof isActive === 'string' && (isActive.trim().toUpperCase() === 'TRUE' || isActive.trim().toUpperCase() === 'YES'));
 
       if (emailMatches && isActiveMatches) {
           return { id: data[i][0], email: data[i][1], role: data[i][2], name: data[i][3] };

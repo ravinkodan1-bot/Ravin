@@ -15,6 +15,7 @@
                     <th>Stage</th>
                     <th>ETA</th>
                     <th>Actions</th>
+                    <th>Docs</th>
                 </tr>
             </thead>
             <tbody id="shipments-tbody">
@@ -28,9 +29,21 @@
     <div style="background:white; padding:20px; border-radius:8px; width:400px; max-width:90%;">
         <h3>Shipment Details</h3>
         <div class="form-group mb-2"><label>Job No</label><input type="text" id="ship_jobNo" class="form-control" style="width:100%; padding:8px;"></div>
-        <div class="form-group mb-2"><label>Importer</label><input type="text" id="ship_importer" class="form-control" style="width:100%; padding:8px;"></div>
-        <div class="form-group mb-2"><label>Supplier</label><input type="text" id="ship_supplier" class="form-control" style="width:100%; padding:8px;"></div>
-        <div class="form-group mb-2"><label>CHA Name</label><input type="text" id="ship_cha" class="form-control" style="width:100%; padding:8px;"></div>
+        <div class="form-group mb-2"><label>Importer</label>
+            <select id="ship_importer" class="form-control" style="width:100%; padding:8px;">
+                <option value="">Select Importer...</option>
+            </select>
+        </div>
+        <div class="form-group mb-2"><label>Supplier</label>
+            <select id="ship_supplier" class="form-control" style="width:100%; padding:8px;">
+                <option value="">Select Supplier...</option>
+            </select>
+        </div>
+        <div class="form-group mb-2"><label>CHA Name</label>
+            <select id="ship_cha" class="form-control" style="width:100%; padding:8px;">
+                <option value="">Select CHA...</option>
+            </select>
+        </div>
         <div class="form-group mb-2"><label>BL No</label><input type="text" id="ship_blNo" class="form-control" style="width:100%; padding:8px;"></div>
         <div class="form-group mb-2"><label>Container No</label><input type="text" id="ship_containerNo" class="form-control" style="width:100%; padding:8px;"></div>
         <div class="form-group mb-2"><label>Stage</label>
@@ -54,6 +67,37 @@
         <div style="display:flex; justify-content:flex-end; gap:10px;">
             <button class="btn" style="background:#ddd;" onclick="closeShipmentModal()">Cancel</button>
             <button class="btn btn-primary" onclick="saveShipment()">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="docs-modal" class="modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:500px; max-width:90%;">
+        <h3>Documents for <span id="doc_jobNo_display"></span></h3>
+        <input type="hidden" id="doc_jobNo">
+        <div id="existing-docs" class="mb-3" style="max-height:200px; overflow-y:auto; border:1px solid #ddd; padding:10px;">
+            Loading...
+        </div>
+        <hr>
+        <h4>Upload New Document</h4>
+        <div class="form-group mb-2">
+            <select id="doc_type" class="form-control" style="width:100%; padding:8px;">
+                <option value="PI Copy">PI Copy</option>
+                <option value="Invoice">Invoice</option>
+                <option value="Packing List">Packing List</option>
+                <option value="BL Copy">BL Copy</option>
+                <option value="BOE Copy">BOE Copy</option>
+                <option value="Duty Challan">Duty Challan</option>
+                <option value="OOC Copy">OOC Copy</option>
+                <option value="Delivery Order">Delivery Order</option>
+            </select>
+        </div>
+        <div class="form-group mb-2">
+            <input type="file" id="doc_file" class="form-control" style="width:100%; padding:8px;">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button class="btn" style="background:#ddd;" onclick="closeDocsModal()">Close</button>
+            <button class="btn btn-primary" onclick="uploadDoc()" id="upload_btn">Upload</button>
         </div>
     </div>
 </div>

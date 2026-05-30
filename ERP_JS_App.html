@@ -16,10 +16,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function applyRBAC(role) {
     const modules = {
-        'Admin': ['dashboard','shipments','tasks','reports'],
-        'Management': ['dashboard','reports'],
-        'Import Team': ['shipments','tasks'],
-        'Accounts Team': ['reports'], // Simplified for demonstration
+        'Admin': ['dashboard','shipments','costing','tasks','reports','search','masters'],
+        'Management': ['dashboard','reports','search','masters'],
+        'Import Team': ['shipments','costing','tasks','search','masters'],
+        'Accounts Team': ['costing','reports','search','masters'], // Simplified for demonstration
         'Read Only': ['dashboard']
     };
 
@@ -44,6 +44,8 @@ function navigate(viewId) {
     if(viewId === 'tasks') initTasks();
     if(viewId === 'reports') initReports();
 
-    if(viewId === 'search') document.getElementById('searchInput').focus();
+    if(viewId === 'costing') { document.getElementById('costing_jobNo').focus(); }
+
+    if(viewId === 'search','masters') document.getElementById('searchInput').focus();
 }
 </script>

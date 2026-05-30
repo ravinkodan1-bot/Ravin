@@ -1,0 +1,65 @@
+<script>
+function loadMasters() {
+    google.script.run.withSuccessHandler(data => {
+        const tbody = document.getElementById('masters-tbody');
+        const filter = document.getElementById('master_filter_type').value;
+
+        let filtered = data;
+        if(filter !== 'All') {
+            filtered = data.filter(d => d.Type === filter);
+        }
+
+        if(filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6">No entities found.</td></tr>';
+            return;
+        }
+        let html = '';
+        filtered.forEach(e => {
+            html += `<tr>
+                <td>${escapeHtml(e.Type)}</td>
+                <td>${escapeHtml(e.Name)}</td>
+                <td>${escapeHtml(e.Email)}</td>
+                <td>${escapeHtml(e.Contact)}</td>
+                <td>${e.IS_ACTIVE === true || String(e.IS_ACTIVE).toUpperCase() === 'TRUE' || String(e.IS_ACTIVE).toUpperCase() === 'YES' ? 'Active' : 'Inactive'}</td>
+                <td><button class="btn btn-sm btn-danger" onclick="toggleEntityStatus('${escapeHtml(e.ID)}', false)">Deactivate</button></td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }).getAllEntities();
+}
+
+function openNewEntityModal() {
+    document.getElementById('ent_id').value = '';
+    document.getElementById('ent_type').value = 'Importer';
+    document.getElementById('ent_name').value = '';
+    document.getElementById('ent_email').value = '';
+    document.getElementById('ent_contact').value = '';
+    document.getElementById('entity-modal').style.display = 'flex';
+}
+
+function closeEntityModal() {
+    document.getElementById('entity-modal').style.display = 'none';
+}
+
+function saveEntity() {
+    const data = {
+        type: document.getElementById('ent_type').value,
+        name: document.getElementById('ent_name').value,
+        email: document.getElementById('ent_email').value,
+        contact: document.getElementById('ent_contact').value
+    };
+    if(!data.name) return alert("Name is required.");
+
+    google.script.run.withSuccessHandler(() => {
+        closeEntityModal();
+        loadMasters();
+    }).saveNewEntity(data);
+}
+
+function toggleEntityStatus(id, status) {
+    if(!confirm("Are you sure?")) return;
+    google.script.run.withSuccessHandler(() => {
+        loadMasters();
+    }).updateEntityStatus(id, status);
+}
+</script>

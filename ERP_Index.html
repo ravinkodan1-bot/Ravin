@@ -16,6 +16,7 @@
                 <?!= include('ERP_Header'); ?>
             </header>
             <div id="view-dashboard" class="view-section active"><?!= include('ERP_Dashboard'); ?></div>
+            <div id="view-costing" class="view-section" style="display:none;"><?!= include('ERP_Costing'); ?></div>
             <div id="view-shipments" class="view-section" style="display:none;"><?!= include('ERP_Shipments'); ?></div>
             <div id="view-tasks" class="view-section" style="display:none;"><?!= include('ERP_Tasks'); ?></div>
             <div id="view-reports" class="view-section" style="display:none;"><?!= include('ERP_Reports'); ?></div>
@@ -24,6 +25,7 @@
     <?!= include('ERP_JS_App'); ?>
     <?!= include('ERP_JS_Dashboard'); ?>
     <?!= include('ERP_JS_Shipments'); ?>
+    <?!= include('ERP_JS_Costing'); ?>
     <?!= include('ERP_JS_Reports'); ?>
 
 
@@ -31,7 +33,9 @@
 
 
     <!-- Extra scripts for Dashboard updates -->
+            <div id="view-masters" class="view-section" style="display:none;"><?!= include('ERP_Masters'); ?></div>
             <div id="view-search" class="view-section" style="display:none;"><?!= include('ERP_Search'); ?></div>
     <?!= include('ERP_JS_Search'); ?>
+    <?!= include('ERP_JS_Masters'); ?>
 </body>
 </html>

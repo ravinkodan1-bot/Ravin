@@ -1,0 +1,37 @@
+<div class="panel">
+    <div class="panel-header">
+        <h2>Import Costing Engine</h2>
+    </div>
+    <div class="form-group mb-3 mt-3">
+        <label>Select Job No</label>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="costing_jobNo" class="form-control" style="width:250px;" placeholder="Enter Job No">
+            <button class="btn btn-primary" onclick="loadCostingData()">Load Costing</button>
+        </div>
+    </div>
+
+    <div id="costing-details" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div>
+                <div class="form-group mb-2"><label>Invoice Value (INR)</label><input type="number" id="cost_invoice" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Duty</label><input type="number" id="cost_duty" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Shipping Charges</label><input type="number" id="cost_shipping" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Transportation</label><input type="number" id="cost_transport" class="form-control" onchange="calculateCosting()"></div>
+            </div>
+            <div>
+                <div class="form-group mb-2"><label>CHA Charges</label><input type="number" id="cost_cha" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Port Charges</label><input type="number" id="cost_port" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Other Expenses</label><input type="number" id="cost_other" class="form-control" onchange="calculateCosting()"></div>
+                <div class="form-group mb-2"><label>Total Units / Qty</label><input type="number" id="cost_qty" class="form-control" onchange="calculateCosting()"></div>
+            </div>
+        </div>
+        <hr>
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f8f9fa; padding:15px; border-radius:5px;">
+            <div>
+                <h4>Total Landed Cost: <span id="lbl_total_cost" style="color:var(--primary);">₹ 0</span></h4>
+                <h4>Per Unit Cost: <span id="lbl_unit_cost" style="color:var(--success);">₹ 0</span></h4>
+            </div>
+            <button class="btn btn-success" onclick="saveCostingData()">Save Costing</button>
+        </div>
+    </div>
+</div>

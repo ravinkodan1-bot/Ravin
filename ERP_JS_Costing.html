@@ -1,0 +1,59 @@
+<script>
+function loadCostingData() {
+    const jobNo = document.getElementById('costing_jobNo').value;
+    if(!jobNo) return alert("Please enter Job No");
+    google.script.run.withSuccessHandler(data => {
+        document.getElementById('costing-details').style.display = 'block';
+        if(data) {
+            document.getElementById('cost_invoice').value = data.invoice || 0;
+            document.getElementById('cost_duty').value = data.duty || 0;
+            document.getElementById('cost_shipping').value = data.shipping || 0;
+            document.getElementById('cost_transport').value = data.transport || 0;
+            document.getElementById('cost_cha').value = data.cha || 0;
+            document.getElementById('cost_port').value = data.port || 0;
+            document.getElementById('cost_other').value = data.other || 0;
+            document.getElementById('cost_qty').value = data.qty || 1;
+            calculateCosting();
+        } else {
+            // Reset
+            ['invoice','duty','shipping','transport','cha','port','other'].forEach(id => document.getElementById('cost_'+id).value = 0);
+            document.getElementById('cost_qty').value = 1;
+            calculateCosting();
+        }
+    }).getCosting(jobNo);
+}
+
+function calculateCosting() {
+    const invoice = parseFloat(document.getElementById('cost_invoice').value) || 0;
+    const duty = parseFloat(document.getElementById('cost_duty').value) || 0;
+    const shipping = parseFloat(document.getElementById('cost_shipping').value) || 0;
+    const transport = parseFloat(document.getElementById('cost_transport').value) || 0;
+    const cha = parseFloat(document.getElementById('cost_cha').value) || 0;
+    const port = parseFloat(document.getElementById('cost_port').value) || 0;
+    const other = parseFloat(document.getElementById('cost_other').value) || 0;
+    const qty = parseFloat(document.getElementById('cost_qty').value) || 1;
+
+    const total = invoice + duty + shipping + transport + cha + port + other;
+    const unit = total / qty;
+
+    document.getElementById('lbl_total_cost').innerText = '₹ ' + total.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('lbl_unit_cost').innerText = '₹ ' + unit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function saveCostingData() {
+    const data = {
+        jobNo: document.getElementById('costing_jobNo').value,
+        invoice: parseFloat(document.getElementById('cost_invoice').value) || 0,
+        duty: parseFloat(document.getElementById('cost_duty').value) || 0,
+        shipping: parseFloat(document.getElementById('cost_shipping').value) || 0,
+        transport: parseFloat(document.getElementById('cost_transport').value) || 0,
+        cha: parseFloat(document.getElementById('cost_cha').value) || 0,
+        port: parseFloat(document.getElementById('cost_port').value) || 0,
+        other: parseFloat(document.getElementById('cost_other').value) || 0,
+        qty: parseFloat(document.getElementById('cost_qty').value) || 1
+    };
+    google.script.run.withSuccessHandler(() => {
+        alert("Costing saved successfully!");
+    }).saveCosting(data);
+}
+</script>

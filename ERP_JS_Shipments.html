@@ -17,13 +17,42 @@ function loadShipments() {
                 <td>${escapeHtml(s.Stage)}</td>
                 <td>${new Date(s.ETA).toLocaleDateString()}</td>
                 <td><button class="btn btn-primary" onclick="editShipmentStage('${escapeHtml(s.Job_No)}', '${escapeHtml(s.Stage)}')">Update Stage</button></td>
+                <td><button class="btn btn-secondary btn-sm" onclick="openDocsModal('${escapeHtml(s.Job_No)}')">Docs</button></td>
             </tr>`;
         });
         tbody.innerHTML = html;
     }).getActiveShipments();
 }
 
+function loadDropdowns() {
+    google.script.run.withSuccessHandler(data => {
+        const importerSelect = document.getElementById('ship_importer');
+        const supplierSelect = document.getElementById('ship_supplier');
+        const chaSelect = document.getElementById('ship_cha');
+
+        importerSelect.innerHTML = '<option value="">Select Importer...</option>';
+        supplierSelect.innerHTML = '<option value="">Select Supplier...</option>';
+        chaSelect.innerHTML = '<option value="">Select CHA...</option>';
+
+        const importers = data.filter(i => i.Type === 'Importer');
+        const suppliers = data.filter(i => i.Type === 'Supplier');
+        const chas = data.filter(i => i.Type === 'CHA');
+
+        importers.forEach(i => {
+            importerSelect.innerHTML += `<option value="${escapeHtml(i.Name)}">${escapeHtml(i.Name)}</option>`;
+        });
+        suppliers.forEach(s => {
+            supplierSelect.innerHTML += `<option value="${escapeHtml(s.Name)}">${escapeHtml(s.Name)}</option>`;
+        });
+        chas.forEach(c => {
+            chaSelect.innerHTML += `<option value="${escapeHtml(c.Name)}">${escapeHtml(c.Name)}</option>`;
+        });
+
+    }).getEntities();
+}
+
 function openNewShipmentModal() {
+    loadDropdowns();
     document.getElementById('shipment-modal').style.display = 'flex';
 }
 
@@ -56,5 +85,57 @@ function editShipmentStage(jobNo, currentStage) {
             loadShipments();
         }).updateShipmentStage(jobNo, newStage);
     }
+}
+</script>
+<script>
+function openDocsModal(jobNo) {
+    document.getElementById('doc_jobNo_display').innerText = jobNo;
+    document.getElementById('doc_jobNo').value = jobNo;
+    document.getElementById('docs-modal').style.display = 'flex';
+    document.getElementById('existing-docs').innerHTML = 'Loading...';
+
+    google.script.run.withSuccessHandler(docs => {
+        if(docs.length === 0) {
+            document.getElementById('existing-docs').innerHTML = 'No documents uploaded yet.';
+            return;
+        }
+        let html = '<ul>';
+        docs.forEach(d => {
+            html += `<li><strong>${escapeHtml(d.DocType)}</strong>: <a href="${escapeHtml(d.URL)}" target="_blank">View File</a> (${new Date(d.Date).toLocaleDateString()})</li>`;
+        });
+        html += '</ul>';
+        document.getElementById('existing-docs').innerHTML = html;
+    }).getShipmentDocs(jobNo);
+}
+
+function closeDocsModal() {
+    document.getElementById('docs-modal').style.display = 'none';
+}
+
+function uploadDoc() {
+    const jobNo = document.getElementById('doc_jobNo').value;
+    const type = document.getElementById('doc_type').value;
+    const fileInput = document.getElementById('doc_file');
+
+    if(!fileInput.files.length) return alert('Please select a file to upload.');
+    const file = fileInput.files[0];
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = e.target.result.split(',')[1];
+        const mimeType = file.type;
+        const name = file.name;
+
+        document.getElementById('upload_btn').innerText = 'Uploading...';
+        document.getElementById('upload_btn').disabled = true;
+
+        google.script.run.withSuccessHandler(() => {
+            document.getElementById('upload_btn').innerText = 'Upload';
+            document.getElementById('upload_btn').disabled = false;
+            document.getElementById('doc_file').value = '';
+            openDocsModal(jobNo); // refresh list
+        }).uploadDocumentToDrive(jobNo, type, name, mimeType, data);
+    };
+    reader.readAsDataURL(file);
 }
 </script>
