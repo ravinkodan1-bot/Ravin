@@ -1,0 +1,93 @@
+<!-- Tasks.html (Template) -->
+<template id="tpl-tasks">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>My Pending Tasks</span>
+      <button class="btn btn-sm btn-outline-secondary" onclick="init_tasks()"><i class="fa-solid fa-sync"></i> Refresh</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tasks-table">
+          <thead>
+            <tr>
+              <th>Task ID</th>
+              <th>Order ID</th>
+              <th>Task Type</th>
+              <th>Due Date</th>
+              <th>Delay (Hrs)</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center py-4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+function init_tasks() {
+  app.showLoader();
+  // We need a backend function in Tasks.gs to get tasks for the current user/role.
+  // For now, we simulate calling it, assuming we will add `getUserTasks` to Tasks.gs
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      renderTasksTable(res);
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load tasks", "danger");
+    })
+    .getUserTasks(app.state.user.userId, app.state.user.role);
+}
+
+function renderTasksTable(tasks) {
+  const tbody = document.querySelector('#tasks-table tbody');
+  tbody.innerHTML = '';
+
+  if (!tasks || tasks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No pending tasks found. Great job!</td></tr>';
+    return;
+  }
+
+  tasks.forEach(t => {
+    const delay = parseFloat(t.DelayHours) || 0;
+    const delayBadge = delay > 0 ? `<span class="badge bg-danger">${delay} hrs</span>` : '<span class="badge bg-success">On Time</span>';
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${app.escapeHTML(t.TaskID)}</td>
+        <td class="fw-bold text-primary cursor-pointer" onclick="app.navigate('orders')">${app.escapeHTML(t.OrderID)}</td>
+        <td>${app.escapeHTML(t.TaskType)}</td>
+        <td>${new Date(t.DueDate).toLocaleString()}</td>
+        <td>${delayBadge}</td>
+        <td><span class="badge bg-warning text-dark">${app.escapeHTML(t.Status)}</span></td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick="completeTask('${app.escapeHTML(t.TaskID)}', '${app.escapeHTML(t.OrderID)}', '${app.escapeHTML(t.TaskType)}')"><i class="fa-solid fa-check"></i> Complete</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function completeTask(taskId, orderId, type) {
+  if(confirm(`Are you sure you want to mark ${type} for ${orderId} as complete?`)) {
+    app.showLoader();
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          app.toast("Task completed successfully!");
+          init_tasks();
+        } else {
+          app.hideLoader();
+          app.toast(res.message, "danger");
+        }
+      })
+      .updateTask(taskId, app.state.user.userId, "Completed", "Manually completed", app.state.user.userId);
+  }
+}
+</script>

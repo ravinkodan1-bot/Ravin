@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operations Control Center</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <?!= include('CSS'); ?>
+</head>
+<body>
+
+  <!-- App Wrapper -->
+  <div id="app-wrapper" class="d-none">
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h5 class="m-0 text-white"><i class="fa-solid fa-boxes-stacked me-2"></i> OCC</h5>
+        <button id="close-sidebar" class="btn btn-sm btn-outline-light d-md-none"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <ul class="nav flex-column" id="nav-menu">
+        <!-- Injected dynamically based on role -->
+      </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="main-content" class="main-content">
+
+      <!-- Topbar -->
+      <header class="topbar d-flex justify-content-between align-items-center px-3 shadow-sm">
+        <div class="d-flex align-items-center">
+          <button id="toggle-sidebar" class="btn btn-light me-3 d-md-none"><i class="fa-solid fa-bars"></i></button>
+          <h4 class="m-0" id="page-title">Dashboard</h4>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+          <!-- Notification Bell -->
+          <div class="dropdown">
+            <button class="btn btn-light position-relative" type="button" id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa-regular fa-bell"></i>
+              <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle d-none" id="notif-badge">
+                <span class="visually-hidden">New alerts</span>
+              </span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notifDropdown" id="notif-list" style="width: 300px; max-height: 400px; overflow-y: auto;">
+              <li><span class="dropdown-item text-center text-muted">No new notifications</span></li>
+            </ul>
+          </div>
+
+          <!-- User Profile -->
+          <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" id="user-avatar-initials">U</div>
+              <span class="d-none d-md-inline" id="user-name-display">User</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
+              <li><h6 class="dropdown-header" id="user-role-display">Role</h6></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" onclick="app.logout()"><i class="fa-solid fa-sign-out-alt me-2"></i> Logout</a></li>
+            </ul>
+          </div>
+        </div>
+      </header>
+
+      <!-- View Container -->
+      <main class="container-fluid p-3 p-md-4" id="view-container">
+        <!-- Content gets injected here by JS Router -->
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="login-overlay d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow border-0" style="width: 100%; max-width: 400px;">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <i class="fa-solid fa-boxes-stacked fa-3x text-primary mb-3"></i>
+          <h4 class="mb-0">Operations Control</h4>
+          <p class="text-muted small">Sign in to continue</p>
+        </div>
+        <form id="login-form">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" id="login-username" class="form-control" required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Password</label>
+            <input type="password" id="login-password" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2" id="login-btn">
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Loader Overlay -->
+  <div id="global-loader" class="global-loader d-none">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <?!= include('Components'); ?>
+  <?!= include('Dashboard'); ?>
+  <?!= include('Orders'); ?>
+  <?!= include('Tasks'); ?>
+  <?!= include('Reports'); ?>
+
+<?!= include('Settings_Users'); ?>
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SortableJS (for Kanban) -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+  <?!= include('JS'); ?>
+</body>
+</html>

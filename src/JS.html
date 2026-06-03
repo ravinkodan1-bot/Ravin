@@ -1,0 +1,258 @@
+<script>
+/**
+ * Main JS application logic
+ */
+
+const app = {
+  state: {
+    user: null,
+    token: null,
+    currentView: 'dashboard'
+  },
+
+  init: function() {
+    this.checkSession();
+    this.bindEvents();
+  },
+
+  bindEvents: function() {
+    // Login form
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.login();
+    });
+
+    // Sidebar toggle (Mobile)
+    document.getElementById('toggle-sidebar').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.add('show');
+    });
+    document.getElementById('close-sidebar').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('show');
+    });
+  },
+
+  showLoader: function() {
+    document.getElementById('global-loader').classList.remove('d-none');
+  },
+
+  hideLoader: function() {
+    document.getElementById('global-loader').classList.add('d-none');
+  },
+
+  escapeHTML: function(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  },
+
+  toast: function(message, type = 'success') {
+    // Assuming a Bootstrap toast container exists in Components.html
+    const toastEl = document.getElementById('global-toast');
+    if (toastEl) {
+      document.getElementById('toast-body').innerText = message;
+      toastEl.className = `toast align-items-center text-white bg-${type} border-0`;
+      const toast = new bootstrap.Toast(toastEl);
+      toast.show();
+    } else {
+      alert(message);
+    }
+  },
+
+  checkSession: function() {
+    this.showLoader();
+    const token = localStorage.getItem('occ_token');
+
+    if (!token) {
+      this.hideLoader();
+      this.showLogin();
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        if (res.isValid) {
+          // Temporarily store user info if needed, but normally we fetch full profile
+          this.state.token = token;
+          this.state.user = { userId: res.userId, role: res.role };
+          this.completeLoginSetup();
+        } else {
+          this.logout();
+        }
+      })
+      .withFailureHandler((err) => {
+        console.error(err);
+        this.logout();
+      })
+      .validateSession(token);
+  },
+
+  login: function() {
+    const user = document.getElementById('login-username').value;
+    const pass = document.getElementById('login-password').value;
+    const btn = document.getElementById('login-btn');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Signing in...';
+
+    google.script.run
+      .withSuccessHandler((res) => {
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+
+        if (res.success) {
+          if (res.requirePasswordChange) {
+            // Handle force password change (Simplified here)
+            const newPass = prompt("Please enter a new password:");
+            if(newPass) {
+               google.script.run.withSuccessHandler(r => {
+                  if(r.success) {
+                      this.toast("Password updated. Please login again.");
+                      document.getElementById('login-password').value = "";
+                  }
+               }).updatePassword(res.userId, newPass);
+            }
+            return;
+          }
+
+          localStorage.setItem('occ_token', res.token);
+          this.state.token = res.token;
+          this.state.user = res.user;
+          this.completeLoginSetup();
+        } else {
+          this.toast(res.message, 'danger');
+        }
+      })
+      .withFailureHandler((err) => {
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+        this.toast('Server error during login', 'danger');
+      })
+      .loginUser(user, pass);
+  },
+
+  logout: function() {
+    const token = localStorage.getItem('occ_token');
+    if (token) {
+      google.script.run.logoutUser(token);
+    }
+    localStorage.removeItem('occ_token');
+    this.state.user = null;
+    this.state.token = null;
+
+    // Reset UI
+    document.getElementById('app-wrapper').classList.add('d-none');
+    document.getElementById('login-overlay').classList.remove('d-none');
+    document.getElementById('login-password').value = '';
+    this.hideLoader();
+  },
+
+  completeLoginSetup: function() {
+    document.getElementById('login-overlay').classList.add('d-none');
+    document.getElementById('app-wrapper').classList.remove('d-none');
+
+    // Render topbar details
+    if(this.state.user && this.state.user.name) {
+       document.getElementById('user-name-display').innerText = this.state.user.name;
+       document.getElementById('user-avatar-initials').innerText = this.state.user.name.charAt(0).toUpperCase();
+       document.getElementById('user-role-display').innerText = this.state.user.role;
+    }
+
+    this.buildNavigation();
+    this.navigate('dashboard');
+    this.fetchNotifications();
+    this.hideLoader();
+  },
+
+  buildNavigation: function() {
+    const role = this.state.user.role;
+    const menu = document.getElementById('nav-menu');
+    menu.innerHTML = '';
+
+    const links = [
+      { id: 'dashboard', icon: 'fa-chart-line', label: 'Dashboard', roles: ['ADMIN', 'SALES', 'DISPATCH', 'BILLING', 'CRM'] },
+      { id: 'orders', icon: 'fa-shopping-cart', label: 'Orders', roles: ['ADMIN', 'SALES', 'DISPATCH', 'BILLING', 'CRM'] },
+      { id: 'kanban', icon: 'fa-columns', label: 'Kanban Board', roles: ['ADMIN', 'SALES', 'DISPATCH', 'BILLING', 'CRM'] },
+      { id: 'tasks', icon: 'fa-tasks', label: 'My Tasks', roles: ['ADMIN', 'SALES', 'DISPATCH', 'BILLING', 'CRM'] },
+      { id: 'reports', icon: 'fa-file-alt', label: 'Reports', roles: ['ADMIN'] },
+      { id: 'users', icon: 'fa-users', label: 'Users', roles: ['ADMIN'] },
+      { id: 'settings', icon: 'fa-cog', label: 'Settings', roles: ['ADMIN'] }
+    ];
+
+    links.forEach(link => {
+      if (link.roles.includes(role)) {
+        const li = document.createElement('li');
+        li.className = 'nav-item';
+        li.innerHTML = `<a class="nav-link cursor-pointer" id="nav-${link.id}" onclick="app.navigate('${link.id}')"><i class="fa-solid ${link.icon}"></i> ${link.label}</a>`;
+        menu.appendChild(li);
+      }
+    });
+  },
+
+  navigate: function(viewId) {
+    this.state.currentView = viewId;
+
+    // Update active nav state
+    document.querySelectorAll('.sidebar .nav-link').forEach(el => el.classList.remove('active'));
+    const activeNav = document.getElementById(`nav-${viewId}`);
+    if (activeNav) activeNav.classList.add('active');
+
+    // Close sidebar on mobile after click
+    if (window.innerWidth < 768) {
+      document.getElementById('sidebar').classList.remove('show');
+    }
+
+    // Hide all views, then show target
+    const container = document.getElementById('view-container');
+    container.innerHTML = ''; // Clear current view
+
+    // Template loading mechanism (Simple client-side routing)
+    const templateId = `tpl-${viewId}`;
+    const tpl = document.getElementById(templateId);
+
+    if (tpl) {
+      container.appendChild(tpl.content.cloneNode(true));
+      this.updatePageTitle(viewId);
+
+      // Execute view-specific init logic if it exists
+      if (window[`init_${viewId}`]) {
+        window[`init_${viewId}`]();
+      }
+    } else {
+      container.innerHTML = `
+        <div class="alert alert-warning text-center mt-5">
+          <i class="fa-solid fa-person-digging fa-3x mb-3"></i>
+          <h4>View Not Found</h4>
+          <p>The template for <strong>${viewId}</strong> has not been loaded or built yet.</p>
+        </div>
+      `;
+    }
+  },
+
+  updatePageTitle: function(viewId) {
+    const titles = {
+      'dashboard': 'Dashboard',
+      'orders': 'Order List',
+      'kanban': 'Kanban Board',
+      'tasks': 'My Tasks',
+      'reports': 'Reports',
+      'users': 'User Management',
+      'settings': 'System Settings'
+    };
+    document.getElementById('page-title').innerText = titles[viewId] || 'OCC';
+  },
+
+  fetchNotifications: function() {
+    // Implement notification fetching logic using google.script.run.getUserNotifications
+  }
+};
+
+// Start app when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  app.init();
+});
+
+</script>

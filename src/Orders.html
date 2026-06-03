@@ -1,0 +1,265 @@
+<!-- Orders.html (Template) -->
+<template id="tpl-orders">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>All Orders</span>
+      <button class="btn btn-primary btn-sm" onclick="openNewOrderModal()"><i class="fa-solid fa-plus me-1"></i> New Order</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Date</th>
+              <th>Customer/Party</th>
+              <th>Stage</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center py-4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Order Modal -->
+  <div class="modal fade" id="newOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Create New Order</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="new-order-form">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Company</label>
+                <input type="text" class="form-control" name="company" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Party Name</label>
+                <input type="text" class="form-control" name="partyName" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Brand</label>
+                <input type="text" class="form-control" name="brandName">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Quantity</label>
+                <input type="number" class="form-control" name="quantity" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Order Value</label>
+                <input type="number" step="0.01" class="form-control" name="orderValue">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Remarks</label>
+                <textarea class="form-control" name="remarks" rows="2"></textarea>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="submitNewOrder()">Create Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-kanban">
+  <div class="kanban-board" id="kanban-container">
+    <!-- Columns injected by JS -->
+  </div>
+</template>
+
+<script>
+let ordersList = [];
+let newOrderModalInstance = null;
+
+function init_orders() {
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      ordersList = res;
+      renderOrdersTable();
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load orders", "danger");
+    })
+    .getOrders();
+}
+
+function renderOrdersTable() {
+  const tbody = document.querySelector('#orders-table tbody');
+  tbody.innerHTML = '';
+
+  if (ordersList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No orders found.</td></tr>';
+    return;
+  }
+
+  ordersList.sort((a,b) => new Date(b.CreatedAt) - new Date(a.CreatedAt)).forEach(o => {
+    const statusClass = getStatusBadgeClass(o.OverallStatus);
+    tbody.innerHTML += `
+      <tr>
+        <td class="fw-bold text-primary cursor-pointer" onclick="viewOrder('${app.escapeHTML(o.OrderID)}')">${app.escapeHTML(o.OrderID)}</td>
+        <td>${o.OrderDate ? new Date(o.OrderDate).toLocaleDateString() : ''}</td>
+        <td>${app.escapeHTML(o.PartyName || o.Company)}</td>
+        <td><span class="badge bg-light text-dark border">${app.escapeHTML(o.CurrentStage)}</span></td>
+        <td><span class="badge ${statusClass}">${app.escapeHTML(o.OverallStatus)}</span></td>
+        <td>${app.escapeHTML(o.CurrentOwner || 'Unassigned')}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${app.escapeHTML(o.OrderID)}')"><i class="fa-solid fa-eye"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function openNewOrderModal() {
+  if (!newOrderModalInstance) {
+    newOrderModalInstance = new bootstrap.Modal(document.getElementById('newOrderModal'));
+  }
+  document.getElementById('new-order-form').reset();
+  newOrderModalInstance.show();
+}
+
+function submitNewOrder() {
+  const form = document.getElementById('new-order-form');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      if (res.success) {
+        app.toast("Order created: " + res.orderId);
+        newOrderModalInstance.hide();
+        init_orders(); // reload
+      } else {
+        app.toast(res.message, "danger");
+      }
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Error creating order", "danger");
+    })
+    .createOrder(data, app.state.user.userId);
+}
+
+function viewOrder(orderId) {
+  // To be implemented: Open Order Profile detail view
+  app.toast("Viewing order " + orderId + " (Detail view pending)");
+}
+
+// Kanban Logic
+function init_kanban() {
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      ordersList = res;
+      renderKanban();
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load orders for Kanban", "danger");
+    })
+    .getOrders();
+}
+
+function renderKanban() {
+  const container = document.getElementById('kanban-container');
+  container.innerHTML = '';
+
+  const stages = [
+    { id: 'ORDER_RECEIVED', title: 'Received' },
+    { id: 'SO_CREATED', title: 'SO Created' },
+    { id: 'STOCK_CONFIRMED', title: 'Stock Confirmed' },
+    { id: 'TRANSPORT_ASSIGNED', title: 'Transport Ready' },
+    { id: 'BILL_GENERATED', title: 'Billed' },
+    { id: 'DISPATCHED', title: 'Dispatched' },
+    { id: 'DELIVERED', title: 'Delivered' }
+  ];
+
+  stages.forEach(stage => {
+    const colOrders = ordersList.filter(o => o.CurrentStage === stage.id && o.OverallStatus !== "Cancelled" && o.OverallStatus !== "Closed");
+
+    let cardsHtml = '';
+    colOrders.forEach(o => {
+      const statusClass = getStatusBadgeClass(o.OverallStatus);
+      cardsHtml += `
+        <div class="kanban-card" data-id="${app.escapeHTML(o.OrderID)}">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="kanban-card-title text-primary">${app.escapeHTML(o.OrderID)}</span>
+            <span class="badge ${statusClass}" style="font-size:0.7rem;">${app.escapeHTML(o.OverallStatus)}</span>
+          </div>
+          <div class="kanban-card-meta mb-1"><i class="fa-solid fa-building fa-fw"></i> ${app.escapeHTML(o.PartyName || o.Company)}</div>
+          <div class="kanban-card-meta"><i class="fa-regular fa-clock fa-fw"></i> ${new Date(o.CreatedAt).toLocaleDateString()}</div>
+        </div>
+      `;
+    });
+
+    const colHtml = `
+      <div class="kanban-column">
+        <div class="kanban-header">
+          <span>${stage.title}</span>
+          <span class="badge bg-secondary rounded-pill">${colOrders.length}</span>
+        </div>
+        <div class="kanban-cards" data-stage="${stage.id}">
+          ${cardsHtml}
+        </div>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforeend', colHtml);
+  });
+
+  // Initialize SortableJS
+  document.querySelectorAll('.kanban-cards').forEach(el => {
+    new Sortable(el, {
+      group: 'kanban',
+      animation: 150,
+      ghostClass: 'bg-light',
+      onEnd: function (evt) {
+        const itemEl = evt.item;
+        const toList = evt.to;
+        const orderId = itemEl.getAttribute('data-id');
+        const newStage = toList.getAttribute('data-stage');
+        const oldStage = evt.from.getAttribute('data-stage');
+
+        if (newStage !== oldStage) {
+          app.showLoader();
+          google.script.run
+            .withSuccessHandler(res => {
+              app.hideLoader();
+              if(res.success) {
+                app.toast(`Order ${orderId} moved to ${newStage}`);
+                init_kanban(); // Reload to refresh counts and rules
+              } else {
+                app.toast(res.message, "danger");
+                init_kanban(); // Revert
+              }
+            })
+            .updateOrderStage(orderId, newStage, app.state.user.userId, "Moved via Kanban");
+        }
+      }
+    });
+  });
+}
+</script>
