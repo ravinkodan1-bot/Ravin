@@ -62,6 +62,13 @@ const app = {
     }
   },
 
+  showLogin: function() {
+    document.getElementById('app-wrapper').classList.add('d-none');
+    document.getElementById('login-overlay').classList.remove('d-none');
+    document.getElementById('login-password').value = '';
+    this.hideLoader();
+  },
+
   checkSession: function() {
     this.showLoader();
     const token = localStorage.getItem('occ_token');
@@ -105,15 +112,27 @@ const app = {
 
         if (res.success) {
           if (res.requirePasswordChange) {
-            // Handle force password change (Simplified here)
-            const newPass = prompt("Please enter a new password:");
-            if(newPass) {
-               google.script.run.withSuccessHandler(r => {
-                  if(r.success) {
-                      this.toast("Password updated. Please login again.");
-                      document.getElementById('login-password').value = "";
-                  }
-               }).updatePassword(res.userId, newPass);
+            // Provide a clearer message to the user that they must change their password
+            const newPass = prompt(`Welcome ${user}! For security reasons, please enter a new password to continue:\n\n(If you cancel, you will not be logged in.)`);
+            if (newPass && newPass.trim() !== '') {
+               this.showLoader();
+               google.script.run
+                 .withSuccessHandler(r => {
+                    this.hideLoader();
+                    if(r.success) {
+                        this.toast("Password updated successfully. Please sign in with your new password.");
+                        document.getElementById('login-password').value = "";
+                    } else {
+                        this.toast("Failed to update password: " + r.message, "danger");
+                    }
+                 })
+                 .withFailureHandler(err => {
+                    this.hideLoader();
+                    this.toast("Server error updating password.", "danger");
+                 })
+                 .updatePassword(res.userId, newPass);
+            } else {
+               this.toast("Password change cancelled. Login aborted.", "warning");
             }
             return;
           }
@@ -168,7 +187,7 @@ const app = {
   },
 
   buildNavigation: function() {
-    const role = this.state.user.role;
+    const role = (this.state.user.role || "").toUpperCase();
     const menu = document.getElementById('nav-menu');
     menu.innerHTML = '';
 

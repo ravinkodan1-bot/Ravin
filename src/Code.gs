@@ -68,11 +68,11 @@ function loginUser(username, password) {
       if (row[isDeletedIdx] === "TRUE" || row[statusIdx] !== "Active") continue;
 
       if (row[userIdx] === username) {
-        // Check password. Also allow plain text 'admin123' for the first time setup.
-        if (row[passIdx] === providedHash || (username === 'admin' && password === 'admin123' && row[passIdx] === 'admin123')) {
+        // Check password. Also allow plain text passwords temporarily if they match exactly (for existing users not hashed yet)
+        if (row[passIdx] === providedHash || row[passIdx] === password || (username === 'admin' && password === 'admin123' && row[passIdx] === 'admin123')) {
 
           // Force password change on first login if it was the default plain text
-          if (row[passIdx] === 'admin123') {
+          if (row[passIdx] === 'admin123' || row[passIdx] === password) {
             return { success: true, requirePasswordChange: true, userId: row[idIdx], username: username };
           }
 
