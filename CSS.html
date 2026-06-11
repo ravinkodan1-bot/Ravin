@@ -1,0 +1,75 @@
+<style>
+/* Base overrides */
+body {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f7fa !important;
+  color: #333;
+}
+
+/* Typography & Layout */
+.navbar {
+  padding: 1rem 1.5rem;
+}
+.navbar-brand {
+  font-size: 1.25rem;
+  letter-spacing: 0.5px;
+}
+
+/* Cards */
+.card {
+  border-radius: 12px;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.kpi-card:hover, .chart-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.08) !important;
+}
+
+/* KPI Icons */
+.icon-shape {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,.1);
+}
+
+/* Filters */
+.filter-card {
+  background: #ffffff;
+}
+.filter-group label {
+  margin-bottom: 0.2rem;
+  color: #6c757d;
+}
+.form-control:focus, .form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+
+/* Utilities */
+.text-primary {
+  color: #0d6efd !important;
+}
+.bg-primary {
+  background-color: #0d6efd !important;
+}
+
+/* Custom Scrollbar for dropdowns/page */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>

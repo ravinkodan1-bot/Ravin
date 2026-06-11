@@ -1,0 +1,298 @@
+<script>
+/**
+ * Utility to escape HTML and prevent XSS
+ */
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Utility to format numbers as Indian Currency
+ */
+function formatCurrency(num) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(num);
+}
+
+/**
+ * Utility to format numbers cleanly
+ */
+function formatNumber(num) {
+  return new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 2
+  }).format(num);
+}
+
+// Chart Instances (global scope to allow destroying before re-render)
+let trendChartInst = null;
+let brandChartInst = null;
+let skuChartInst = null;
+
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Set current date in navbar
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  document.getElementById('currentDateDisplay').textContent = new Date().toLocaleDateString('en-IN', options);
+
+  // Bind Event Listeners
+  document.getElementById('applyFiltersBtn').addEventListener('click', loadDashboardData);
+  document.getElementById('resetFiltersBtn').addEventListener('click', resetFilters);
+
+  // Initial Load
+  loadDashboardData();
+});
+
+function resetFilters() {
+  document.getElementById('startDate').value = '';
+  document.getElementById('endDate').value = '';
+  document.getElementById('brandFilter').value = '';
+  loadDashboardData();
+}
+
+function showLoading() {
+  document.getElementById('loadingOverlay').classList.remove('d-none');
+  document.getElementById('dashboardContent').classList.add('d-none');
+  document.getElementById('errorMessage').classList.add('d-none');
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').classList.add('d-none');
+}
+
+function showError(msg) {
+  hideLoading();
+  const errDiv = document.getElementById('errorMessage');
+  document.getElementById('errorText').textContent = msg;
+  errDiv.classList.remove('d-none');
+  document.getElementById('dashboardContent').classList.add('d-none');
+}
+
+function loadDashboardData() {
+  showLoading();
+
+  const filters = {
+    startDate: document.getElementById('startDate').value,
+    endDate: document.getElementById('endDate').value,
+    brand: document.getElementById('brandFilter').value
+  };
+
+  google.script.run
+    .withSuccessHandler(renderDashboard)
+    .withFailureHandler((err) => {
+      showError("Failed to fetch data from server: " + err.message);
+    })
+    .getDashboardData(filters);
+}
+
+function renderDashboard(response) {
+  if (response.status === 'error') {
+    showError(response.message);
+    return;
+  }
+
+  // Update Filters Dropdown (only on initial load if empty)
+  const brandSelect = document.getElementById('brandFilter');
+  if (brandSelect.options.length <= 1 && response.filtersData.brands) {
+    response.filtersData.brands.forEach(brand => {
+      const opt = document.createElement('option');
+      opt.value = escapeHTML(brand);
+      opt.textContent = escapeHTML(brand);
+      brandSelect.appendChild(opt);
+    });
+  }
+
+  // Update KPIs
+  const kpis = response.kpis;
+  document.getElementById('kpiTotalAmount').textContent = formatCurrency(kpis.totalAmount);
+  document.getElementById('kpiTotalPairs').textContent = formatNumber(kpis.totalPairs);
+  document.getElementById('kpiTotalInvoices').textContent = formatNumber(kpis.totalInvoices);
+  document.getElementById('kpiAvgAmount').textContent = formatCurrency(kpis.avgAmountPerInvoice);
+
+  // Render Charts
+  renderTrendChart(response.charts.trend);
+  renderBrandChart(response.charts.brand);
+  renderSkuChart(response.charts.sku);
+
+  // Show Content
+  hideLoading();
+  document.getElementById('dashboardContent').classList.remove('d-none');
+}
+
+function renderTrendChart(data) {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+
+  if (trendChartInst) trendChartInst.destroy();
+
+  trendChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: 'Total Amount (₹)',
+          data: data.amounts,
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Total Pairs',
+          data: data.pairs,
+          borderColor: '#198754',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          tension: 0.3,
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.datasetIndex === 0) {
+                label += formatCurrency(context.parsed.y);
+              } else {
+                label += formatNumber(context.parsed.y);
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false }
+        },
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: { display: true, text: 'Amount (₹)' },
+          grid: { color: '#e9ecef' }
+        },
+        y1: {
+          type: 'linear',
+          display: true,
+          position: 'right',
+          title: { display: true, text: 'Pairs' },
+          grid: { drawOnChartArea: false }
+        }
+      }
+    }
+  });
+}
+
+function renderBrandChart(data) {
+  const ctx = document.getElementById('brandChart').getContext('2d');
+
+  if (brandChartInst) brandChartInst.destroy();
+
+  // Vibrant color palette for brands
+  const colors = [
+    '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
+    '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'
+  ];
+
+  brandChartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        data: data.amounts,
+        backgroundColor: colors,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { boxWidth: 12, font: { size: 11 } }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let val = context.parsed || 0;
+              return ' ' + formatCurrency(val);
+            }
+          }
+        }
+      },
+      cutout: '65%'
+    }
+  });
+}
+
+function renderSkuChart(data) {
+  const ctx = document.getElementById('skuChart').getContext('2d');
+
+  if (skuChartInst) skuChartInst.destroy();
+
+  skuChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: 'Pairs Sold',
+        data: data.quantities,
+        backgroundColor: '#ffc107',
+        borderColor: '#ffca2c',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return ' Pairs: ' + formatNumber(context.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          title: { display: true, text: 'SKU Code' }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#e9ecef' },
+          title: { display: true, text: 'Quantity (Pairs)' }
+        }
+      }
+    }
+  });
+}
+</script>
