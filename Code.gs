@@ -57,12 +57,11 @@ function getDashboardData(filters = {}) {
       }
     });
 
-    // Parse filters
-    let startDate = null;
-    let endDate = null;
-    if (filters.startDate) startDate = new Date(filters.startDate);
-    if (filters.endDate) endDate = new Date(filters.endDate);
+    // Parse filters (using strings for robust YYYY-MM-DD comparison)
+    const startDateStr = filters.startDate ? filters.startDate : null;
+    const endDateStr = filters.endDate ? filters.endDate : null;
     const filterBrand = filters.brand ? String(filters.brand).trim().toUpperCase() : null;
+    const scriptTimeZone = Session.getScriptTimeZone();
 
     // Initialization for aggregations
     let totalPairs = 0;
@@ -90,12 +89,14 @@ function getDashboardData(filters = {}) {
         return;
       }
 
+      const dateString = Utilities.formatDate(rowDate, scriptTimeZone, "yyyy-MM-dd");
+
       // Collect unique brands for the dropdown filter (unfiltered)
       if (brand) uniqueBrands.add(brand);
 
       // Apply Filters
-      if (startDate && rowDate < startDate) return;
-      if (endDate && rowDate > endDate) return;
+      if (startDateStr && dateString < startDateStr) return;
+      if (endDateStr && dateString > endDateStr) return;
       if (filterBrand && brand.toUpperCase() !== filterBrand) return;
 
       // Calculate KPIs
@@ -109,8 +110,6 @@ function getDashboardData(filters = {}) {
       }
 
       // Aggregate by Daily Trends (for Line Chart)
-      // Format as YYYY-MM-DD for easier sorting
-      const dateString = rowDate.toISOString().split('T')[0];
       if (!dailyAgg[dateString]) {
         dailyAgg[dateString] = { pairs: 0, amount: 0 };
       }
