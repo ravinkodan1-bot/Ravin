@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Operations Control Center</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <?!= include('CSS'); ?>
+</head>
+<body>
+
+  <!-- App Wrapper -->
+  <div id="app-wrapper" class="d-none">
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h5 class="m-0 text-white"><i class="fa-solid fa-boxes-stacked me-2"></i> OCC</h5>
+        <button id="close-sidebar" class="btn btn-sm btn-outline-light d-md-none"><i class="fa-solid fa-times"></i></button>
+      </div>
+      <ul class="nav flex-column" id="nav-menu">
+        <!-- Injected dynamically based on role -->
+      </ul>
+    </nav>
+
+    <!-- Main Content -->
+    <div id="main-content" class="main-content">
+
+      <!-- Topbar -->
+      <header class="topbar d-flex justify-content-between align-items-center px-3 shadow-sm">
+        <div class="d-flex align-items-center">
+          <button id="toggle-sidebar" class="btn btn-light me-3 d-md-none"><i class="fa-solid fa-bars"></i></button>
+          <h4 class="m-0" id="page-title">Dashboard</h4>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+          <!-- Notification Bell -->
+          <div class="dropdown">
+            <button class="btn btn-light position-relative" type="button" id="notifDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="fa-regular fa-bell"></i>
+              <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle d-none" id="notif-badge">
+                <span class="visually-hidden">New alerts</span>
+              </span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="notifDropdown" id="notif-list" style="width: 300px; max-height: 400px; overflow-y: auto;">
+              <li><span class="dropdown-item text-center text-muted">No new notifications</span></li>
+            </ul>
+          </div>
+
+          <!-- User Profile -->
+          <div class="dropdown">
+            <button class="btn btn-light dropdown-toggle d-flex align-items-center gap-2" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" id="user-avatar-initials">U</div>
+              <span class="d-none d-md-inline" id="user-name-display">User</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
+              <li><h6 class="dropdown-header" id="user-role-display">Role</h6></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#" onclick="app.logout()"><i class="fa-solid fa-sign-out-alt me-2"></i> Logout</a></li>
+            </ul>
+          </div>
+        </div>
+      </header>
+
+      <!-- View Container -->
+      <main class="container-fluid p-3 p-md-4" id="view-container">
+        <!-- Content gets injected here by JS Router -->
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Login Overlay -->
+  <div id="login-overlay" class="login-overlay d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow border-0" style="width: 100%; max-width: 400px;">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <i class="fa-solid fa-boxes-stacked fa-3x text-primary mb-3"></i>
+          <h4 class="mb-0">Operations Control</h4>
+          <p class="text-muted small">Sign in to continue</p>
+        </div>
+        <form id="login-form">
+          <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" id="login-username" class="form-control" required>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Password</label>
+            <input type="password" id="login-password" class="form-control" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2" id="login-btn">
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Loader Overlay -->
+  <div id="global-loader" class="global-loader d-none">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+<!-- Components.html -->
+
+<!-- Global Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2100;">
+  <div id="global-toast" class="toast align-items-center text-white bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toast-body">
+        Message goes here.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Reusable Status Badge Component Function (to be used in JS rendering) -->
+<script>
+function getStatusBadgeClass(status) {
+  switch(status) {
+    case 'Draft': return 'bg-secondary';
+    case 'Open': return 'bg-primary';
+    case 'In Progress': return 'bg-info text-dark';
+    case 'Delayed': return 'bg-danger';
+    case 'Dispatched': return 'bg-warning text-dark';
+    case 'Delivered': return 'bg-success';
+    case 'Closed': return 'bg-dark';
+    case 'Cancelled': return 'bg-danger';
+    default: return 'bg-secondary';
+  }
+}
+<!-- Dashboard.html (Template) -->
+<template id="tpl-dashboard">
+
+  <!-- KPI Row -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-primary border-4">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">Today's Orders</div>
+          <div class="fs-3 fw-bold text-dark" id="kpi-today">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-info border-4">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">Pending</div>
+          <div class="fs-3 fw-bold text-dark" id="kpi-pending">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-warning border-4">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">Dispatch Pend.</div>
+          <div class="fs-3 fw-bold text-dark" id="kpi-dispatch">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-danger border-4">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">Delayed</div>
+          <div class="fs-3 fw-bold text-danger" id="kpi-delayed">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-success border-4">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">Delivered</div>
+          <div class="fs-3 fw-bold text-dark" id="kpi-delivered">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-xl-2">
+      <div class="card h-100 border-start border-dark border-4 bg-danger-subtle bg-opacity-10">
+        <div class="card-body px-3 py-2">
+          <div class="text-muted small fw-bold text-uppercase mb-1">SLA Breaches</div>
+          <div class="fs-3 fw-bold text-dark" id="kpi-slabreach">--</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <!-- Charts -->
+    <div class="col-12 col-lg-8">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>Orders By Status</span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="init_dashboard()"><i class="fa-solid fa-sync"></i></button>
+        </div>
+        <div class="card-body">
+          <canvas id="chart-status" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-4">
+      <div class="card h-100">
+        <div class="card-header">Delay Analysis by Stage</div>
+        <div class="card-body">
+          <canvas id="chart-delay"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Delayed Tables -->
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header bg-danger text-white">Top 5 Delayed Orders</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" id="table-delayed-orders">
+              <thead><tr><th>Order ID</th><th>Company</th><th>Stage</th><th>Date</th></tr></thead>
+              <tbody><tr><td colspan="4" class="text-center">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-6">
+      <div class="card">
+        <div class="card-header bg-warning">Top Delayed Employees</div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" id="table-delayed-emps">
+              <thead><tr><th>Employee</th><th>Delayed Tasks</th></tr></thead>
+              <tbody><tr><td colspan="2" class="text-center">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+let dashboardCharts = {};
+
+function init_dashboard() {
+  app.showLoader();
+
+  google.script.run
+    .withSuccessHandler((res) => {
+      app.hideLoader();
+      if (res.success) {
+        renderDashboard(res.data);
+      } else {
+        app.toast("Failed to load dashboard data: " + res.message, "danger");
+      }
+    })
+    .withFailureHandler((err) => {
+      app.hideLoader();
+      app.toast("Server error fetching dashboard", "danger");
+    })
+    .getDashboardMetrics();
+}
+
+function renderDashboard(data) {
+  // Update KPIs
+  document.getElementById('kpi-today').innerText = data.kpi.totalOrdersToday;
+  document.getElementById('kpi-pending').innerText = data.kpi.pendingOrders;
+  document.getElementById('kpi-dispatch').innerText = data.kpi.dispatchPending;
+  document.getElementById('kpi-delayed').innerText = data.kpi.delayedOrdersCount;
+  document.getElementById('kpi-delivered').innerText = data.kpi.deliveredOrders;
+  document.getElementById('kpi-slabreach').innerText = data.kpi.slaBreachCount;
+
+  // Render Status Chart
+  const ctxStatus = document.getElementById('chart-status');
+  if (dashboardCharts['status']) dashboardCharts['status'].destroy();
+
+  dashboardCharts['status'] = new Chart(ctxStatus, {
+    type: 'bar',
+    data: {
+      labels: Object.keys(data.charts.ordersByStatus),
+      datasets: [{
+        label: 'Orders',
+        data: Object.values(data.charts.ordersByStatus),
+        backgroundColor: '#0d6efd',
+        borderRadius: 4
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  // Render Delay Chart
+  const ctxDelay = document.getElementById('chart-delay');
+  if (dashboardCharts['delay']) dashboardCharts['delay'].destroy();
+
+  dashboardCharts['delay'] = new Chart(ctxDelay, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(data.charts.delayAnalysis),
+      datasets: [{
+        data: Object.values(data.charts.delayAnalysis),
+        backgroundColor: ['#dc3545', '#ffc107', '#fd7e14', '#20c997', '#0dcaf0']
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Render Tables
+  const tbodyOrders = document.querySelector('#table-delayed-orders tbody');
+  tbodyOrders.innerHTML = '';
+  if (data.tables.topDelayedOrders.length === 0) {
+    tbodyOrders.innerHTML = '<tr><td colspan="4" class="text-center">No delayed orders</td></tr>';
+  } else {
+    data.tables.topDelayedOrders.forEach(o => {
+      tbodyOrders.innerHTML += `<tr><td>${app.escapeHTML(o.OrderID)}</td><td>${app.escapeHTML(o.Company)}</td><td><span class="badge bg-secondary">${app.escapeHTML(o.Stage)}</span></td><td>${new Date(o.Date).toLocaleDateString()}</td></tr>`;
+    });
+  }
+
+  const tbodyEmps = document.querySelector('#table-delayed-emps tbody');
+  tbodyEmps.innerHTML = '';
+  if (data.tables.topDelayedEmployees.length === 0) {
+    tbodyEmps.innerHTML = '<tr><td colspan="2" class="text-center">No delayed employees</td></tr>';
+  } else {
+    data.tables.topDelayedEmployees.forEach(e => {
+      tbodyEmps.innerHTML += `<tr><td>${app.escapeHTML(e.User)}</td><td><span class="badge bg-danger">${app.escapeHTML(e.Delays)}</span></td></tr>`;
+    });
+  }
+}
+<!-- Orders.html (Template) -->
+<template id="tpl-orders">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>All Orders</span>
+      <button class="btn btn-primary btn-sm" onclick="openNewOrderModal()"><i class="fa-solid fa-plus me-1"></i> New Order</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="orders-table">
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Date</th>
+              <th>Customer/Party</th>
+              <th>Stage</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center py-4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Order Modal -->
+  <div class="modal fade" id="newOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Create New Order</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="new-order-form">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Company</label>
+                <input type="text" class="form-control" name="company" required>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Party Name</label>
+                <input type="text" class="form-control" name="partyName" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Brand</label>
+                <input type="text" class="form-control" name="brandName">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Quantity</label>
+                <input type="number" class="form-control" name="quantity" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Order Value</label>
+                <input type="number" step="0.01" class="form-control" name="orderValue">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Remarks</label>
+                <textarea class="form-control" name="remarks" rows="2"></textarea>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" onclick="submitNewOrder()">Create Order</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-kanban">
+  <div class="kanban-board" id="kanban-container">
+    <!-- Columns injected by JS -->
+  </div>
+</template>
+
+<script>
+let ordersList = [];
+let newOrderModalInstance = null;
+
+function init_orders() {
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      ordersList = res;
+      renderOrdersTable();
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load orders", "danger");
+    })
+    .getOrders();
+}
+
+function renderOrdersTable() {
+  const tbody = document.querySelector('#orders-table tbody');
+  tbody.innerHTML = '';
+
+  if (ordersList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No orders found.</td></tr>';
+    return;
+  }
+
+  ordersList.sort((a,b) => new Date(b.CreatedAt) - new Date(a.CreatedAt)).forEach(o => {
+    const statusClass = getStatusBadgeClass(o.OverallStatus);
+    tbody.innerHTML += `
+      <tr>
+        <td class="fw-bold text-primary cursor-pointer" onclick="viewOrder('${app.escapeHTML(o.OrderID)}')">${app.escapeHTML(o.OrderID)}</td>
+        <td>${o.OrderDate ? new Date(o.OrderDate).toLocaleDateString() : ''}</td>
+        <td>${app.escapeHTML(o.PartyName || o.Company)}</td>
+        <td><span class="badge bg-light text-dark border">${app.escapeHTML(o.CurrentStage)}</span></td>
+        <td><span class="badge ${statusClass}">${app.escapeHTML(o.OverallStatus)}</span></td>
+        <td>${app.escapeHTML(o.CurrentOwner || 'Unassigned')}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="viewOrder('${app.escapeHTML(o.OrderID)}')"><i class="fa-solid fa-eye"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function openNewOrderModal() {
+  if (!newOrderModalInstance) {
+    newOrderModalInstance = new bootstrap.Modal(document.getElementById('newOrderModal'));
+  }
+  document.getElementById('new-order-form').reset();
+  newOrderModalInstance.show();
+}
+
+function submitNewOrder() {
+  const form = document.getElementById('new-order-form');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+
+  const formData = new FormData(form);
+  const data = Object.fromEntries(formData.entries());
+
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      if (res.success) {
+        app.toast("Order created: " + res.orderId);
+        newOrderModalInstance.hide();
+        init_orders(); // reload
+      } else {
+        app.toast(res.message, "danger");
+      }
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Error creating order", "danger");
+    })
+    .createOrder(data, app.state.user.userId);
+}
+
+function viewOrder(orderId) {
+  // To be implemented: Open Order Profile detail view
+  app.toast("Viewing order " + orderId + " (Detail view pending)");
+}
+
+// Kanban Logic
+function init_kanban() {
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      ordersList = res;
+      renderKanban();
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load orders for Kanban", "danger");
+    })
+    .getOrders();
+}
+
+function renderKanban() {
+  const container = document.getElementById('kanban-container');
+  container.innerHTML = '';
+
+  const stages = [
+    { id: 'ORDER_RECEIVED', title: 'Received' },
+    { id: 'SO_CREATED', title: 'SO Created' },
+    { id: 'STOCK_CONFIRMED', title: 'Stock Confirmed' },
+    { id: 'TRANSPORT_ASSIGNED', title: 'Transport Ready' },
+    { id: 'BILL_GENERATED', title: 'Billed' },
+    { id: 'DISPATCHED', title: 'Dispatched' },
+    { id: 'DELIVERED', title: 'Delivered' }
+  ];
+
+  stages.forEach(stage => {
+    const colOrders = ordersList.filter(o => o.CurrentStage === stage.id && o.OverallStatus !== "Cancelled" && o.OverallStatus !== "Closed");
+
+    let cardsHtml = '';
+    colOrders.forEach(o => {
+      const statusClass = getStatusBadgeClass(o.OverallStatus);
+      cardsHtml += `
+        <div class="kanban-card" data-id="${app.escapeHTML(o.OrderID)}">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="kanban-card-title text-primary">${app.escapeHTML(o.OrderID)}</span>
+            <span class="badge ${statusClass}" style="font-size:0.7rem;">${app.escapeHTML(o.OverallStatus)}</span>
+          </div>
+          <div class="kanban-card-meta mb-1"><i class="fa-solid fa-building fa-fw"></i> ${app.escapeHTML(o.PartyName || o.Company)}</div>
+          <div class="kanban-card-meta"><i class="fa-regular fa-clock fa-fw"></i> ${new Date(o.CreatedAt).toLocaleDateString()}</div>
+        </div>
+      `;
+    });
+
+    const colHtml = `
+      <div class="kanban-column">
+        <div class="kanban-header">
+          <span>${stage.title}</span>
+          <span class="badge bg-secondary rounded-pill">${colOrders.length}</span>
+        </div>
+        <div class="kanban-cards" data-stage="${stage.id}">
+          ${cardsHtml}
+        </div>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforeend', colHtml);
+  });
+
+  // Initialize SortableJS
+  document.querySelectorAll('.kanban-cards').forEach(el => {
+    new Sortable(el, {
+      group: 'kanban',
+      animation: 150,
+      ghostClass: 'bg-light',
+      onEnd: function (evt) {
+        const itemEl = evt.item;
+        const toList = evt.to;
+        const orderId = itemEl.getAttribute('data-id');
+        const newStage = toList.getAttribute('data-stage');
+        const oldStage = evt.from.getAttribute('data-stage');
+
+        if (newStage !== oldStage) {
+          app.showLoader();
+          google.script.run
+            .withSuccessHandler(res => {
+              app.hideLoader();
+              if(res.success) {
+                app.toast(`Order ${orderId} moved to ${newStage}`);
+                init_kanban(); // Reload to refresh counts and rules
+              } else {
+                app.toast(res.message, "danger");
+                init_kanban(); // Revert
+              }
+            })
+            .updateOrderStage(orderId, newStage, app.state.user.userId, "Moved via Kanban");
+        }
+      }
+    });
+  });
+}
+<!-- Tasks.html (Template) -->
+<template id="tpl-tasks">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>My Pending Tasks</span>
+      <button class="btn btn-sm btn-outline-secondary" onclick="init_tasks()"><i class="fa-solid fa-sync"></i> Refresh</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tasks-table">
+          <thead>
+            <tr>
+              <th>Task ID</th>
+              <th>Order ID</th>
+              <th>Task Type</th>
+              <th>Due Date</th>
+              <th>Delay (Hrs)</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="7" class="text-center py-4">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+function init_tasks() {
+  app.showLoader();
+  // We need a backend function in Tasks.gs to get tasks for the current user/role.
+  // For now, we simulate calling it, assuming we will add `getUserTasks` to Tasks.gs
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      renderTasksTable(res);
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to load tasks", "danger");
+    })
+    .getUserTasks(app.state.user.userId, app.state.user.role);
+}
+
+function renderTasksTable(tasks) {
+  const tbody = document.querySelector('#tasks-table tbody');
+  tbody.innerHTML = '';
+
+  if (!tasks || tasks.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">No pending tasks found. Great job!</td></tr>';
+    return;
+  }
+
+  tasks.forEach(t => {
+    const delay = parseFloat(t.DelayHours) || 0;
+    const delayBadge = delay > 0 ? `<span class="badge bg-danger">${delay} hrs</span>` : '<span class="badge bg-success">On Time</span>';
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${app.escapeHTML(t.TaskID)}</td>
+        <td class="fw-bold text-primary cursor-pointer" onclick="app.navigate('orders')">${app.escapeHTML(t.OrderID)}</td>
+        <td>${app.escapeHTML(t.TaskType)}</td>
+        <td>${new Date(t.DueDate).toLocaleString()}</td>
+        <td>${delayBadge}</td>
+        <td><span class="badge bg-warning text-dark">${app.escapeHTML(t.Status)}</span></td>
+        <td>
+          <button class="btn btn-sm btn-success" onclick="completeTask('${app.escapeHTML(t.TaskID)}', '${app.escapeHTML(t.OrderID)}', '${app.escapeHTML(t.TaskType)}')"><i class="fa-solid fa-check"></i> Complete</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+function completeTask(taskId, orderId, type) {
+  if(confirm(`Are you sure you want to mark ${type} for ${orderId} as complete?`)) {
+    app.showLoader();
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          app.toast("Task completed successfully!");
+          init_tasks();
+        } else {
+          app.hideLoader();
+          app.toast(res.message, "danger");
+        }
+      })
+      .updateTask(taskId, app.state.user.userId, "Completed", "Manually completed", app.state.user.userId);
+  }
+}
+<!-- Reports.html (Template) -->
+<template id="tpl-reports">
+  <div class="row">
+    <!-- Report Configuration Card -->
+    <div class="col-md-4 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-dark text-white">
+          <i class="fa-solid fa-filter me-2"></i> Report Generator
+        </div>
+        <div class="card-body">
+          <form id="report-form">
+            <div class="mb-3">
+              <label class="form-label">Report Type</label>
+              <select class="form-select" id="report-type" required>
+                <option value="ORDER_REPORT">Order Summary Report</option>
+                <option value="PERFORMANCE_REPORT">Employee Performance Report</option>
+                <option value="DELAY_REPORT" disabled>Delay Analysis (Coming Soon)</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Start Date</label>
+              <input type="date" class="form-control" id="report-start">
+            </div>
+            <div class="mb-4">
+              <label class="form-label">End Date</label>
+              <input type="date" class="form-control" id="report-end">
+            </div>
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-primary" onclick="runReport()"><i class="fa-solid fa-play me-2"></i> Generate</button>
+              <button type="button" class="btn btn-outline-success" onclick="exportReportCSV()"><i class="fa-solid fa-file-csv me-2"></i> Export CSV</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report Output Card -->
+    <div class="col-md-8 mb-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <strong>Report Results</strong>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+            <table class="table table-hover table-striped mb-0" id="report-table">
+              <thead class="table-dark" id="report-thead">
+                <tr><th class="py-3 px-4">Select parameters and generate a report.</th></tr>
+              </thead>
+              <tbody id="report-tbody">
+                <!-- Data injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+let currentReportData = null; // Store for CSV export
+
+function init_reports() {
+  // Set default dates to current month
+  const date = new Date();
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+  document.getElementById('report-start').value = firstDay.toISOString().split('T')[0];
+  document.getElementById('report-end').value = lastDay.toISOString().split('T')[0];
+}
+
+function runReport() {
+  const type = document.getElementById('report-type').value;
+  const start = document.getElementById('report-start').value;
+  const end = document.getElementById('report-end').value;
+
+  app.showLoader();
+  google.script.run
+    .withSuccessHandler(res => {
+      app.hideLoader();
+      if(res.success) {
+        currentReportData = res;
+        renderReportTable(res);
+      } else {
+        app.toast("Report error: " + res.message, "danger");
+      }
+    })
+    .withFailureHandler(err => {
+      app.hideLoader();
+      app.toast("Failed to fetch report data", "danger");
+    })
+    .generateReport(type, start, end);
+}
+
+function renderReportTable(res) {
+  const thead = document.getElementById('report-thead');
+  const tbody = document.getElementById('report-tbody');
+
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  // Headers
+  let headTr = '<tr>';
+  res.headers.forEach(h => {
+    headTr += `<th>${app.escapeHTML(h)}</th>`;
+  });
+  headTr += '</tr>';
+  thead.innerHTML = headTr;
+
+  // Data
+  if(res.data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${res.headers.length}" class="text-center py-4">No data found for this period.</td></tr>`;
+    return;
+  }
+
+  res.data.forEach(row => {
+    let tr = '<tr>';
+    row.forEach(cell => {
+      tr += `<td>${cell !== null && cell !== undefined ? app.escapeHTML(cell) : ''}</td>`;
+    });
+    tr += '</tr>';
+    tbody.innerHTML += tr;
+  });
+}
+
+function exportReportCSV() {
+  if(!currentReportData || !currentReportData.headers || currentReportData.data.length === 0) {
+    app.toast("Please generate a report first", "warning");
+    return;
+  }
+
+  // Build CSV string
+  let csvContent = "";
+
+  // Header row
+  csvContent += currentReportData.headers.map(h => `"${String(h).replace(/"/g, '""')}"`).join(",") + "\n";
+
+  // Data rows
+  currentReportData.data.forEach(rowArray => {
+    let row = rowArray.map(item => {
+      let str = item !== null && item !== undefined ? String(item) : "";
+      return `"${str.replace(/"/g, '""')}"`;
+    });
+    csvContent += row.join(",") + "\n";
+  });
+
+  // Trigger download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+
+  const type = document.getElementById('report-type').value;
+  const dateStr = new Date().toISOString().split('T')[0];
+  link.setAttribute("download", `${type}_${dateStr}.csv`);
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- SortableJS (for Kanban) -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+  <?!= include('JS'); ?>
+</body>
+</html>
