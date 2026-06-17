@@ -1,0 +1,911 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // State
+  let appData = {
+    vendors: [],
+    items: [],
+    dispatch: [],
+    grn: [],
+    invoice: []
+  };
+
+  // Initialization
+  document.addEventListener("DOMContentLoaded", () => {
+    // Menu Toggle
+    document.getElementById("menu-toggle").addEventListener("click", function(e) {
+      e.preventDefault();
+      document.getElementById("wrapper").classList.toggle("toggled");
+    });
+
+    loadAppData();
+    // Initialize first row for Bulk Dispatch form
+    setTimeout(() => { addDispatchRow(); }, 1000);
+  });
+
+  // Utilities
+  function showLoading(show) {
+    const el = document.getElementById('loadingOverlay');
+    if (show) el.classList.remove('d-none');
+    else el.classList.add('d-none');
+  }
+
+  function showToast(message, isError = false) {
+    const toastEl = document.getElementById('liveToast');
+    const toastBody = document.getElementById('toastMessage');
+    toastBody.textContent = message;
+
+    toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+    toastEl.classList.add(isError ? 'text-bg-danger' : 'text-bg-success');
+
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str.toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatNumber(num) {
+    return Number(parseFloat(num || 0).toFixed(2));
+  }
+
+  // Navigation
+  function showView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('d-none'));
+    document.getElementById(viewId).classList.remove('d-none');
+
+    // Update sidebar active state
+    document.querySelectorAll('#sidebar-wrapper .list-group-item').forEach(el => {
+      el.classList.remove('active');
+      if(el.getAttribute('onclick').includes(viewId)) {
+        el.classList.add('active');
+        document.getElementById('pageTitle').textContent = el.textContent.trim();
+      }
+    });
+
+    if (viewId === 'dashboard-view') renderDashboard();
+    if (viewId === 'container-view') renderContainerTracking();
+    if (viewId === 'reports-view') renderReports();
+  }
+
+  // Data Loading
+  function loadAppData() {
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        showLoading(false);
+        if (res.success) {
+          appData = res.data;
+          populateDropdowns();
+          populateGRNDispatchSelect();
+          renderDashboard();
+          renderMasterTables();
+          renderReports();
+          renderContainerTracking();
+        } else {
+          showToast('Failed to load data: ' + res.message, true);
+        }
+      })
+      .withFailureHandler(err => {
+        showLoading(false);
+        showToast('Error: ' + err.message, true);
+      })
+      .getAppData();
+  }
+
+  function populateDropdowns() {
+    const vendorOpts = '<option value="">Select Vendor...</option>' +
+      appData.vendors.filter(v => v.Status === 'Active').map(v => `<option value="${escapeHTML(v.VendorName)}">${escapeHTML(v.VendorName)}</option>`).join('');
+
+    const itemOpts = '<option value="">Select Item...</option>' +
+      appData.items.filter(i => i.Status === 'Active').map(i => `<option value="${escapeHTML(i.ItemName)}">${escapeHTML(i.ItemName)}</option>`).join('');
+
+    document.querySelectorAll('.vendor-dropdown').forEach(el => el.innerHTML = vendorOpts);
+    document.querySelectorAll('.item-dropdown').forEach(el => el.innerHTML = itemOpts);
+  }
+
+  // Dispatch logic
+  function addDispatchRow() {
+      const tbody = document.querySelector('#dispatchLinesTable tbody');
+      const itemOpts = '<option value="">Select Item...</option>' +
+        appData.items.filter(i => i.Status === 'Active').map(i => `<option value="${escapeHTML(i.ItemName)}">${escapeHTML(i.ItemName)}</option>`).join('');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+          <td><select class="form-select item-dropdown" required>${itemOpts}</select></td>
+          <td><input type="text" class="form-control text-uppercase" required></td>
+          <td><input type="text" class="form-control text-uppercase"></td>
+          <td><input type="number" step="0.01" class="form-control" required></td>
+          <td><input type="text" class="form-control"></td>
+          <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="fas fa-trash"></i></button></td>
+      `;
+      tbody.appendChild(tr);
+  }
+
+  function handleDispatchBulkSubmit(e) {
+      e.preventDefault();
+
+      const headerData = {
+          DispatchDate: document.getElementById('dispDateBulk').value,
+          VendorName: document.getElementById('dispVendorBulk').value,
+          RefInvoice: document.getElementById('dispRefInvoice').value.toUpperCase()
+      };
+
+      const rows = document.querySelectorAll('#dispatchLinesTable tbody tr');
+      if (rows.length === 0) {
+          showToast('Please add at least one container row.', true);
+          return;
+      }
+
+      const lineItems = [];
+      const duplicateCheck = new Set();
+
+      for (let i = 0; i < rows.length; i++) {
+          const inputs = rows[i].querySelectorAll('input, select');
+          const containerNo = inputs[1].value.toUpperCase();
+
+          if(duplicateCheck.has(containerNo)) {
+              showToast(`Duplicate container ${containerNo} in form!`, true);
+              return;
+          }
+          if (appData.dispatch.some(d => d.ContainerNumber === containerNo)) {
+              showToast(`Container ${containerNo} already dispatched in database!`, true);
+              return;
+          }
+          duplicateCheck.add(containerNo);
+
+          lineItems.push({
+              ItemName: inputs[0].value,
+              ContainerNumber: containerNo,
+              VehicleNumber: inputs[2].value.toUpperCase(),
+              DispatchQuantity: formatNumber(inputs[3].value),
+              Remarks: inputs[4].value
+          });
+      }
+
+      showLoading(true);
+      google.script.run
+          .withSuccessHandler(res => {
+              if (res.success) {
+                  showToast('Bulk Dispatch saved! ID: ' + res.dispatchId);
+                  document.getElementById('formDispatchBulk').reset();
+                  document.querySelector('#dispatchLinesTable tbody').innerHTML = '';
+                  addDispatchRow(); // Add empty row
+                  loadAppData();
+              } else {
+                  showLoading(false);
+                  showToast(res.message, true);
+              }
+          })
+          .saveDispatchBulk(headerData, lineItems);
+  }
+
+  // GRN logic
+  function populateGRNDispatchSelect() {
+      const select = document.getElementById('grnDispatchSelect');
+      select.innerHTML = '<option value="">Select a Dispatch...</option>';
+
+      // Group active dispatches (that have pending quantities)
+      const dispatchGroups = {};
+      appData.dispatch.forEach(d => {
+          if(!dispatchGroups[d.DispatchID]) {
+              dispatchGroups[d.DispatchID] = {
+                  id: d.DispatchID,
+                  date: d.DispatchDate,
+                  vendor: d.VendorName,
+                  ref: d.RefInvoice || '',
+                  hasPending: false
+              };
+          }
+          const received = sumGRNQtyForContainer(d.ContainerNumber);
+          if (received < formatNumber(d.DispatchQuantity)) {
+              dispatchGroups[d.DispatchID].hasPending = true;
+          }
+      });
+
+      Object.values(dispatchGroups).filter(g => g.hasPending).forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = `${g.id} - ${g.vendor} (${g.date}) ${g.ref ? '['+g.ref+']' : ''}`;
+          select.appendChild(opt);
+      });
+  }
+
+  function loadGRNContainers() {
+      const dispatchId = document.getElementById('grnDispatchSelect').value;
+      const containerDiv = document.getElementById('grnContainerListContainer');
+      const tbody = document.querySelector('#grnLinesTable tbody');
+      const btn = document.getElementById('grnSubmitBtnBulk');
+
+      tbody.innerHTML = '';
+
+      if(!dispatchId) {
+          containerDiv.classList.add('d-none');
+          btn.disabled = true;
+          return;
+      }
+
+      const containers = appData.dispatch.filter(d => d.DispatchID === dispatchId);
+      let validRowsCount = 0;
+
+      containers.forEach(d => {
+          const dispQty = formatNumber(d.DispatchQuantity);
+          const alreadyReceived = sumGRNQtyForContainer(d.ContainerNumber);
+          const maxAllowed = dispQty - alreadyReceived;
+
+          if(maxAllowed > 0) {
+              validRowsCount++;
+              const tr = document.createElement('tr');
+              tr.dataset.container = d.ContainerNumber;
+              tr.dataset.item = d.ItemName;
+              tr.dataset.vendor = d.VendorName;
+              tr.dataset.max = maxAllowed;
+
+              tr.innerHTML = `
+                  <td>${escapeHTML(d.ContainerNumber)}</td>
+                  <td>${escapeHTML(d.ItemName)}</td>
+                  <td>${dispQty}</td>
+                  <td>${alreadyReceived}</td>
+                  <td>
+                      <input type="number" step="0.01" class="form-control form-control-sm grn-recv-qty" max="${maxAllowed}" placeholder="Max: ${maxAllowed}">
+                  </td>
+                  <td>
+                      <input type="text" class="form-control form-control-sm grn-recv-remarks">
+                  </td>
+              `;
+              tbody.appendChild(tr);
+          }
+      });
+
+      if(validRowsCount > 0) {
+          containerDiv.classList.remove('d-none');
+          btn.disabled = false;
+      } else {
+          containerDiv.classList.add('d-none');
+          btn.disabled = true;
+          showToast('No pending containers left in this dispatch.');
+      }
+  }
+
+  function sumGRNQtyForContainer(containerNo) {
+    return appData.grn
+      .filter(g => g.ContainerNumber === containerNo)
+      .reduce((sum, g) => sum + formatNumber(g.ReceivedQuantity), 0);
+  }
+
+  function handleGRNBulkSubmit(e) {
+      e.preventDefault();
+
+      const headerData = {
+          ReceiptDate: document.getElementById('grnDateBulk').value
+      };
+
+      const rows = document.querySelectorAll('#grnLinesTable tbody tr');
+      const lineItems = [];
+      let totalRecv = 0;
+
+      for(let i=0; i<rows.length; i++) {
+          const inputQty = rows[i].querySelector('.grn-recv-qty');
+          const inputRemarks = rows[i].querySelector('.grn-recv-remarks');
+
+          const val = inputQty.value;
+          if(val && parseFloat(val) > 0) {
+              const qty = formatNumber(val);
+              const max = parseFloat(rows[i].dataset.max);
+
+              if(qty > max) {
+                  showToast(`Container ${rows[i].dataset.container} received qty exceeds allowed max (${max})`, true);
+                  return;
+              }
+
+              totalRecv += qty;
+              lineItems.push({
+                  ContainerNumber: rows[i].dataset.container,
+                  VendorName: rows[i].dataset.vendor,
+                  ItemName: rows[i].dataset.item,
+                  ReceivedQuantity: qty,
+                  Remarks: inputRemarks.value
+              });
+          }
+      }
+
+      if(totalRecv === 0) {
+          showToast('Please enter received quantity for at least one container.', true);
+          return;
+      }
+
+      showLoading(true);
+      google.script.run
+          .withSuccessHandler(res => {
+              if (res.success) {
+                  showToast('Bulk GRN saved! No: ' + res.grnNumber);
+                  document.getElementById('formGRNBulk').reset();
+                  document.getElementById('grnContainerListContainer').classList.add('d-none');
+                  document.getElementById('grnSubmitBtnBulk').disabled = true;
+                  loadAppData();
+              } else {
+                  showLoading(false);
+                  showToast(res.message, true);
+              }
+          })
+          .saveGRNBulk(headerData, lineItems);
+  }
+
+  // Invoice Logic
+  function handleInvoiceSubmit(e) {
+    e.preventDefault();
+    const data = {
+      InvoiceNumber: document.getElementById('invNumber').value.toUpperCase(),
+      InvoiceDate: document.getElementById('invDate').value,
+      VendorName: document.getElementById('invVendor').value,
+      ItemName: document.getElementById('invItem').value,
+      InvoiceQuantity: formatNumber(document.getElementById('invQty').value),
+      InvoiceAmount: formatNumber(document.getElementById('invAmt').value),
+      Remarks: document.getElementById('invRemarks').value
+    };
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast('Invoice saved successfully!');
+          document.getElementById('formInvoice').reset();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .saveInvoice(data);
+  }
+
+  // Master Data Logic
+  let masterModalInstance;
+  function showMasterModal(type) {
+    document.getElementById('masterType').value = type;
+    document.getElementById('masterModalTitle').textContent = `Add ${type}`;
+    document.getElementById('masterNameLabel').textContent = `${type} Name`;
+    document.getElementById('masterName').value = '';
+
+    if(!masterModalInstance) {
+      masterModalInstance = new bootstrap.Modal(document.getElementById('masterModal'));
+    }
+    masterModalInstance.show();
+  }
+
+  function handleMasterSubmit(e) {
+    e.preventDefault();
+    const type = document.getElementById('masterType').value;
+    const name = document.getElementById('masterName').value;
+
+    showLoading(true);
+    const apiCall = type === 'Vendor' ? google.script.run.saveVendor : google.script.run.saveItem;
+
+    apiCall({ [type+'Name']: name })
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast(`${type} saved!`);
+          masterModalInstance.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      });
+  }
+
+  function renderMasterTables() {
+    const vBody = document.querySelector('#vendorTable tbody');
+    vBody.innerHTML = appData.vendors.map(v => `<tr>
+      <td>${escapeHTML(v.VendorName)}</td>
+      <td>${v.Status}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleMasterStatus('VENDORS', 'VendorID', '${v.VendorID}', '${v.Status}')"><i class="fas fa-sync-alt"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('VENDORS', 'VendorID', '${v.VendorID}')"><i class="fas fa-trash"></i></button>
+      </td>
+      </tr>`).join('');
+
+    const iBody = document.querySelector('#itemTable tbody');
+    iBody.innerHTML = appData.items.map(i => `<tr>
+      <td>${escapeHTML(i.ItemName)}</td>
+      <td>${i.Status}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleMasterStatus('ITEMS', 'ItemID', '${i.ItemID}', '${i.Status}')"><i class="fas fa-sync-alt"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('ITEMS', 'ItemID', '${i.ItemID}')"><i class="fas fa-trash"></i></button>
+      </td>
+      </tr>`).join('');
+  }
+
+  function toggleMasterStatus(sheet, idCol, idVal, currentStatus) {
+    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Status updated');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord(sheet, idCol, idVal, { Status: newStatus });
+  }
+
+  function deleteRecordUI(sheet, idCol, idVal) {
+    if(!confirm("Are you sure you want to delete this record?")) return;
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Record deleted');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .deleteRecord(sheet, idCol, idVal);
+  }
+
+  function deleteRecordUIByContainer(sheet, containerNo) {
+    if(!confirm(`Are you sure you want to delete the record for container ${containerNo}?`)) return;
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Record deleted');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .deleteRecordByContainer(sheet, containerNo);
+  }
+
+  // Dashboard & Logic Calculations
+  function renderDashboard() {
+    let totDisp = 0, totRec = 0, totInv = 0;
+
+    appData.dispatch.forEach(d => totDisp += formatNumber(d.DispatchQuantity));
+    appData.grn.forEach(g => totRec += formatNumber(g.ReceivedQuantity));
+    appData.invoice.forEach(i => totInv += formatNumber(i.InvoiceQuantity));
+
+    const pendingQty = totDisp - totRec;
+
+    let partialCont = 0;
+    let missingCont = 0;
+
+    appData.dispatch.forEach(d => {
+      const rec = sumGRNQtyForContainer(d.ContainerNumber);
+      const disp = formatNumber(d.DispatchQuantity);
+      if (rec === 0) missingCont++;
+      else if (rec > 0 && rec < disp) partialCont++;
+    });
+
+    document.getElementById('dash-dispatch-qty').textContent = formatNumber(totDisp);
+    document.getElementById('dash-received-qty').textContent = formatNumber(totRec);
+    document.getElementById('dash-invoice-qty').textContent = formatNumber(totInv);
+    document.getElementById('dash-pending-qty').textContent = formatNumber(pendingQty);
+    document.getElementById('dash-partial-containers').textContent = partialCont;
+    document.getElementById('dash-missing-containers').textContent = missingCont;
+
+    // Reconciliation Table (Vendor + Item wise)
+    const reconMap = {};
+
+    // Aggregate Dispatch
+    appData.dispatch.forEach(d => {
+      const key = `${d.VendorName}_${d.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: d.VendorName, item: d.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].disp += formatNumber(d.DispatchQuantity);
+    });
+    // Aggregate GRN
+    appData.grn.forEach(g => {
+      const key = `${g.VendorName}_${g.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: g.VendorName, item: g.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].rec += formatNumber(g.ReceivedQuantity);
+    });
+    // Aggregate Invoice
+    appData.invoice.forEach(i => {
+      const key = `${i.VendorName}_${i.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: i.VendorName, item: i.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].inv += formatNumber(i.InvoiceQuantity);
+    });
+
+    const tbody = document.querySelector('#reconTable tbody');
+    tbody.innerHTML = '';
+
+    Object.values(reconMap).forEach(row => {
+      const diff = formatNumber(row.inv - row.rec);
+      let statusHtml = '';
+
+      // Alerts Logic
+      if (row.disp > row.rec) statusHtml += `<span class="badge bg-warning text-dark me-1">Pending Rec</span>`;
+      if (row.inv > row.rec) statusHtml += `<span class="badge bg-danger">Inv > Rec</span>`;
+      if (!statusHtml && row.disp === row.rec && row.inv === row.rec) statusHtml = `<span class="badge bg-success">Matched</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${escapeHTML(row.vendor)}</td>
+          <td>${escapeHTML(row.item)}</td>
+          <td>${formatNumber(row.disp)}</td>
+          <td>${formatNumber(row.rec)}</td>
+          <td>${formatNumber(row.inv)}</td>
+          <td class="${diff > 0 ? 'text-danger fw-bold' : ''}">${diff}</td>
+          <td>${statusHtml}</td>
+        </tr>
+      `;
+    });
+  }
+
+  // Container Tracking
+  function renderContainerTracking() {
+    const tbody = document.querySelector('#containerTable tbody');
+    tbody.innerHTML = '';
+
+    appData.dispatch.forEach(d => {
+      const disp = formatNumber(d.DispatchQuantity);
+      const rec = sumGRNQtyForContainer(d.ContainerNumber);
+
+      let statusClass = 'badge-received';
+      let statusText = 'Received';
+
+      if (rec === 0) {
+        statusClass = 'badge-pending';
+        statusText = 'Pending';
+      } else if (rec > 0 && rec < disp) {
+        statusClass = 'badge-partial';
+        statusText = 'Partial';
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${escapeHTML(d.ContainerNumber)}</td>
+          <td>${disp}</td>
+          <td>${rec}</td>
+          <td><span class="${statusClass}">${statusText}</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  // Reports
+  function renderReports() {
+    // Dispatch
+    document.querySelector('#tbl-rep-disp tbody').innerHTML = appData.dispatch.map(d => `
+      <tr>
+        <td>${escapeHTML(d.DispatchID)}</td>
+        <td>${escapeHTML(d.DispatchDate)}</td>
+        <td>${escapeHTML(d.VendorName)}</td>
+        <td>${escapeHTML(d.ItemName)}</td>
+        <td>${escapeHTML(d.ContainerNumber)}</td>
+        <td>${formatNumber(d.DispatchQuantity)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditDispatch('${d.ContainerNumber}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUIByContainer('DISPATCH', '${d.ContainerNumber}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+
+    // GRN
+    document.querySelector('#tbl-rep-grn tbody').innerHTML = appData.grn.map(g => {
+      const disp = appData.dispatch.find(d => d.ContainerNumber === g.ContainerNumber);
+      const dispQty = disp ? formatNumber(disp.DispatchQuantity) : 0;
+      const rec = formatNumber(g.ReceivedQuantity);
+      let status = rec === dispQty ? 'Received' : 'Partial';
+      if (g.Remarks && g.Remarks.indexOf('NOT RECEIVED') > -1 && rec === 0) status = 'Not Received';
+
+      return `
+      <tr>
+        <td>${escapeHTML(g.GRNNumber)}</td>
+        <td>${escapeHTML(g.ReceiptDate)}</td>
+        <td>${escapeHTML(g.ContainerNumber)}</td>
+        <td>${escapeHTML(g.VendorName)}</td>
+        <td>${escapeHTML(g.ItemName)}</td>
+        <td>${rec}</td>
+        <td>${status}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditGrn('${g.GRNNumber}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('GRN', 'GRNNumber', '${g.GRNNumber}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+      `
+    }).join('');
+
+    // Invoice
+    document.querySelector('#tbl-rep-inv tbody').innerHTML = appData.invoice.map(i => `
+      <tr>
+        <td>${escapeHTML(i.InvoiceNumber)}</td>
+        <td>${escapeHTML(i.InvoiceDate)}</td>
+        <td>${escapeHTML(i.VendorName)}</td>
+        <td>${escapeHTML(i.ItemName)}</td>
+        <td>${formatNumber(i.InvoiceQuantity)}</td>
+        <td>${formatNumber(i.InvoiceAmount)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditInvoice('${i.InvoiceNumber}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('INVOICE', 'InvoiceNumber', '${i.InvoiceNumber}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+
+    // Pending Containers
+    const pendingTbody = document.querySelector('#tbl-rep-pending tbody');
+    pendingTbody.innerHTML = '';
+    appData.dispatch.forEach(d => {
+       const dispQty = formatNumber(d.DispatchQuantity);
+       const recQty = sumGRNQtyForContainer(d.ContainerNumber);
+
+       // check if specifically marked as not received
+       const notReceivedFlags = appData.grn.filter(g => g.ContainerNumber === d.ContainerNumber && g.Remarks && g.Remarks.indexOf('NOT RECEIVED') > -1);
+       const isNotReceived = notReceivedFlags.length > 0;
+
+       if (recQty < dispQty && !isNotReceived) {
+           pendingTbody.innerHTML += `
+              <tr>
+                <td>${escapeHTML(d.DispatchID)}</td>
+                <td>${escapeHTML(d.RefInvoice || '')}</td>
+                <td>${escapeHTML(d.VendorName)}</td>
+                <td>${escapeHTML(d.ItemName)}</td>
+                <td>${escapeHTML(d.ContainerNumber)}</td>
+                <td>${escapeHTML(d.VehicleNumber || '')}</td>
+                <td>${dispQty}</td>
+                <td>${recQty}</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-danger" onclick="openNotReceived('${d.ContainerNumber}')"><i class="fas fa-ban me-1"></i>Not Recv</button>
+                </td>
+              </tr>
+           `;
+       }
+    });
+  }
+
+  // Edit Dispatch Logic
+  let editDispModalInst;
+  function openEditDispatch(containerNo) {
+    const d = appData.dispatch.find(x => x.ContainerNumber === containerNo);
+    if (!d) return;
+    document.getElementById('editDispId').value = d.ContainerNumber; // Using Container as ID
+    document.getElementById('editDispQty').value = formatNumber(d.DispatchQuantity);
+    document.getElementById('editDispRemarks').value = d.Remarks || '';
+
+    if (!editDispModalInst) editDispModalInst = new bootstrap.Modal(document.getElementById('editDispatchModal'));
+    editDispModalInst.show();
+  }
+
+  function submitEditDispatch(e) {
+    e.preventDefault();
+    const containerNo = document.getElementById('editDispId').value;
+    const qty = formatNumber(document.getElementById('editDispQty').value);
+    const remarks = document.getElementById('editDispRemarks').value;
+
+    const data = { DispatchQuantity: qty, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Dispatch updated');
+          editDispModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecordByContainer('DISPATCH', containerNo, data);
+  }
+
+  // Edit GRN Logic
+  let editGrnModalInst;
+  function openEditGrn(id) {
+    const g = appData.grn.find(x => x.GRNNumber === id);
+    if (!g) return;
+    document.getElementById('editGrnId').value = g.GRNNumber;
+    document.getElementById('editGrnContainer').value = g.ContainerNumber;
+    document.getElementById('editGrnQty').value = formatNumber(g.ReceivedQuantity);
+    document.getElementById('editGrnRemarks').value = g.Remarks || '';
+
+    // Calculate max allowed qty for edit
+    const disp = appData.dispatch.find(d => d.ContainerNumber === g.ContainerNumber);
+    if(disp) {
+       const otherGrns = appData.grn
+         .filter(x => x.ContainerNumber === g.ContainerNumber && x.GRNNumber !== g.GRNNumber)
+         .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
+       const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
+       document.getElementById('editGrnQty').max = maxAllowed;
+       document.getElementById('editGrnMaxHelp').textContent = `Max allowed: ${maxAllowed} MT`;
+    }
+
+    if (!editGrnModalInst) editGrnModalInst = new bootstrap.Modal(document.getElementById('editGrnModal'));
+    editGrnModalInst.show();
+  }
+
+  function submitEditGrn(e) {
+    e.preventDefault();
+    const id = document.getElementById('editGrnId').value;
+    const containerNo = document.getElementById('editGrnContainer').value;
+    const qty = formatNumber(document.getElementById('editGrnQty').value);
+    const remarks = document.getElementById('editGrnRemarks').value;
+
+    const g = appData.grn.find(x => x.GRNNumber === id);
+    const disp = appData.dispatch.find(d => d.ContainerNumber === containerNo);
+    if (disp && g) {
+       const otherGrns = appData.grn
+         .filter(x => x.ContainerNumber === containerNo && x.GRNNumber !== g.GRNNumber)
+         .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
+       const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
+       if (qty > maxAllowed) {
+           showToast(`Cannot receive more than Dispatched Qty. Max allowed: ${maxAllowed}`, true);
+           return;
+       }
+    }
+
+    const data = { ReceivedQuantity: qty, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('GRN updated');
+          editGrnModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord('GRN', 'GRNNumber', id, data);
+  }
+
+  // Edit Invoice Logic
+  let editInvModalInst;
+  function openEditInvoice(id) {
+    const i = appData.invoice.find(x => x.InvoiceNumber === id);
+    if (!i) return;
+    document.getElementById('editInvId').value = i.InvoiceNumber;
+    document.getElementById('editInvQty').value = formatNumber(i.InvoiceQuantity);
+    document.getElementById('editInvAmt').value = formatNumber(i.InvoiceAmount);
+    document.getElementById('editInvRemarks').value = i.Remarks || '';
+
+    if (!editInvModalInst) editInvModalInst = new bootstrap.Modal(document.getElementById('editInvoiceModal'));
+    editInvModalInst.show();
+  }
+
+  function submitEditInvoice(e) {
+    e.preventDefault();
+    const id = document.getElementById('editInvId').value;
+    const qty = formatNumber(document.getElementById('editInvQty').value);
+    const amt = formatNumber(document.getElementById('editInvAmt').value);
+    const remarks = document.getElementById('editInvRemarks').value;
+
+    const data = { InvoiceQuantity: qty, InvoiceAmount: amt, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Invoice updated');
+          editInvModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord('INVOICE', 'InvoiceNumber', id, data);
+  }
+
+  // Not Received Logic
+  let notRecvModalInst;
+  function openNotReceived(containerNo) {
+    document.getElementById('notRecvContainer').value = containerNo;
+    document.getElementById('notRecvContainerDisplay').textContent = containerNo;
+    document.getElementById('notRecvRemarks').value = '';
+
+    if(!notRecvModalInst) notRecvModalInst = new bootstrap.Modal(document.getElementById('notReceivedModal'));
+    notRecvModalInst.show();
+  }
+
+  function submitNotReceived(e) {
+    e.preventDefault();
+    const containerNo = document.getElementById('notRecvContainer').value;
+    const remarks = document.getElementById('notRecvRemarks').value;
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast(`Container ${containerNo} marked as Not Received!`);
+          notRecvModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .markContainerNotReceived(containerNo, remarks);
+  }
+
+  function filterTable(inputId, tableId) {
+    const input = document.getElementById(inputId);
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById(tableId);
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+      let visible = false;
+      const tds = tr[i].getElementsByTagName("td");
+      // Skip the last "Actions" column
+      for (let j = 0; j < tds.length - 1; j++) {
+        if (tds[j]) {
+          const txtValue = tds[j].textContent || tds[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            visible = true;
+            break;
+          }
+        }
+      }
+      tr[i].style.display = visible ? "" : "none";
+    }
+  }
+
+  function filterTableByDate(tableId, fromId, toId, dateColIdx) {
+    const fromStr = document.getElementById(fromId).value;
+    const toStr = document.getElementById(toId).value;
+    const fromDate = fromStr ? new Date(fromStr) : null;
+    const toDate = toStr ? new Date(toStr) : null;
+
+    const table = document.getElementById(tableId);
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+      const tds = tr[i].getElementsByTagName("td");
+      if (tds.length > dateColIdx) {
+        const rowDateStr = tds[dateColIdx].innerText;
+        const rowDate = new Date(rowDateStr);
+        let show = true;
+
+        if (fromDate && rowDate < fromDate) show = false;
+        if (toDate && rowDate > toDate) show = false;
+
+        // Note: this overrides the text search filter if combined, but provides basic date filtering.
+        tr[i].style.display = show ? "" : "none";
+      }
+    }
+  }
+
+  function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        // Skip hidden rows
+        if(rows[i].style.display === "none") continue;
+
+        let row = [], cols = rows[i].querySelectorAll("td, th");
+
+        // Skip the last column (Actions)
+        for (let j = 0; j < cols.length - 1; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+        csv.push(row.join(","));
+    }
+
+    const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+    const downloadLink = document.createElement("a");
+    downloadLink.download = filename;
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  }
+
+</script>
