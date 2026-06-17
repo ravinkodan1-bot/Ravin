@@ -372,3 +372,94 @@ function saveGRNBulk(headerData, lineItems) {
     return { success: false, message: error.toString() };
   }
 }
+
+function markContainerNotReceived(containerNo, remarks) {
+  try {
+    if (!remarks || remarks.trim() === '') {
+      return { success: false, message: "Remarks are mandatory for marking a container as Not Received." };
+    }
+
+    const ss = getDb();
+    const dispSheet = ss.getSheetByName('DISPATCH');
+    const dispData = dispSheet.getDataRange().getValues();
+    const dispHeaders = dispData[0];
+
+    let containerInfo = null;
+    for (let i = 1; i < dispData.length; i++) {
+      if (dispData[i][dispHeaders.indexOf('ContainerNumber')] === containerNo) {
+        containerInfo = {
+          VendorName: dispData[i][dispHeaders.indexOf('VendorName')],
+          ItemName: dispData[i][dispHeaders.indexOf('ItemName')],
+          DispatchDate: dispData[i][dispHeaders.indexOf('DispatchDate')]
+        };
+        break;
+      }
+    }
+
+    if (!containerInfo) {
+      return { success: false, message: "Container not found in Dispatch." };
+    }
+
+    const grnSheet = ensureSheet('GRN', ['GRNNumber', 'ReceiptDate', 'ContainerNumber', 'VendorName', 'ItemName', 'ReceivedQuantity', 'Remarks', 'IsDeleted', 'CreatedAt']);
+    const grnNumber = getNextSequence('GRN');
+    const grnHeaders = grnSheet.getRange(1, 1, 1, grnSheet.getLastColumn()).getValues()[0];
+
+    let row = new Array(grnHeaders.length).fill('');
+    row[grnHeaders.indexOf('GRNNumber')] = grnNumber;
+    row[grnHeaders.indexOf('ReceiptDate')] = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    row[grnHeaders.indexOf('ContainerNumber')] = containerNo;
+    row[grnHeaders.indexOf('VendorName')] = containerInfo.VendorName;
+    row[grnHeaders.indexOf('ItemName')] = containerInfo.ItemName;
+    row[grnHeaders.indexOf('ReceivedQuantity')] = 0; // 0 qty indicates not received but locks status
+    row[grnHeaders.indexOf('Remarks')] = "NOT RECEIVED: " + remarks;
+    row[grnHeaders.indexOf('IsDeleted')] = false;
+    row[grnHeaders.indexOf('CreatedAt')] = new Date();
+
+    grnSheet.appendRow(row);
+    return { success: true, grnNumber: grnNumber };
+
+  } catch (error) {
+    logError('markContainerNotReceived', error.toString(), '');
+    return { success: false, message: error.toString() };
+  }
+}
+
+function updateRecordByContainer(sheetName, containerNo, dataObj) {
+  try {
+    const ss = getDb();
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return { success: false, message: "Sheet not found" };
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const idIndex = headers.indexOf('ContainerNumber');
+
+    if (idIndex === -1) return { success: false, message: "ContainerNumber Column not found" };
+
+    let rowIndex = -1;
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idIndex] === containerNo) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) return { success: false, message: "Record not found" };
+
+    for (const key in dataObj) {
+      const colIndex = headers.indexOf(key);
+      if (colIndex !== -1) {
+        sheet.getRange(rowIndex, colIndex + 1).setValue(dataObj[key]);
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    logError('updateRecordByContainer - ' + sheetName, error.toString(), '');
+    return { success: false, message: error.toString() };
+  }
+}
+
+function deleteRecordByContainer(sheetName, containerNo) {
+  return updateRecordByContainer(sheetName, containerNo, { 'IsDeleted': true });
+}

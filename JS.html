@@ -454,6 +454,22 @@
       .deleteRecord(sheet, idCol, idVal);
   }
 
+  function deleteRecordUIByContainer(sheet, containerNo) {
+    if(!confirm(`Are you sure you want to delete the record for container ${containerNo}?`)) return;
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Record deleted');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .deleteRecordByContainer(sheet, containerNo);
+  }
+
   // Dashboard & Logic Calculations
   function renderDashboard() {
     let totDisp = 0, totRec = 0, totInv = 0;
@@ -572,8 +588,8 @@
         <td>${escapeHTML(d.ContainerNumber)}</td>
         <td>${formatNumber(d.DispatchQuantity)}</td>
         <td>
-          <button class="btn btn-sm btn-outline-primary" onclick="openEditDispatch('${d.DispatchID}')"><i class="fas fa-edit"></i></button>
-          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('DISPATCH', 'DispatchID', '${d.DispatchID}')"><i class="fas fa-trash"></i></button>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditDispatch('${d.ContainerNumber}')"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUIByContainer('DISPATCH', '${d.ContainerNumber}')"><i class="fas fa-trash"></i></button>
         </td>
       </tr>
     `).join('');
@@ -584,6 +600,7 @@
       const dispQty = disp ? formatNumber(disp.DispatchQuantity) : 0;
       const rec = formatNumber(g.ReceivedQuantity);
       let status = rec === dispQty ? 'Received' : 'Partial';
+      if (g.Remarks && g.Remarks.indexOf('NOT RECEIVED') > -1 && rec === 0) status = 'Not Received';
 
       return `
       <tr>
@@ -617,14 +634,44 @@
         </td>
       </tr>
     `).join('');
+
+    // Pending Containers
+    const pendingTbody = document.querySelector('#tbl-rep-pending tbody');
+    pendingTbody.innerHTML = '';
+    appData.dispatch.forEach(d => {
+       const dispQty = formatNumber(d.DispatchQuantity);
+       const recQty = sumGRNQtyForContainer(d.ContainerNumber);
+
+       // check if specifically marked as not received
+       const notReceivedFlags = appData.grn.filter(g => g.ContainerNumber === d.ContainerNumber && g.Remarks && g.Remarks.indexOf('NOT RECEIVED') > -1);
+       const isNotReceived = notReceivedFlags.length > 0;
+
+       if (recQty < dispQty && !isNotReceived) {
+           pendingTbody.innerHTML += `
+              <tr>
+                <td>${escapeHTML(d.DispatchID)}</td>
+                <td>${escapeHTML(d.RefInvoice || '')}</td>
+                <td>${escapeHTML(d.VendorName)}</td>
+                <td>${escapeHTML(d.ItemName)}</td>
+                <td>${escapeHTML(d.ContainerNumber)}</td>
+                <td>${escapeHTML(d.VehicleNumber || '')}</td>
+                <td>${dispQty}</td>
+                <td>${recQty}</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-danger" onclick="openNotReceived('${d.ContainerNumber}')"><i class="fas fa-ban me-1"></i>Not Recv</button>
+                </td>
+              </tr>
+           `;
+       }
+    });
   }
 
   // Edit Dispatch Logic
   let editDispModalInst;
-  function openEditDispatch(id) {
-    const d = appData.dispatch.find(x => x.DispatchID === id);
+  function openEditDispatch(containerNo) {
+    const d = appData.dispatch.find(x => x.ContainerNumber === containerNo);
     if (!d) return;
-    document.getElementById('editDispId').value = d.DispatchID;
+    document.getElementById('editDispId').value = d.ContainerNumber; // Using Container as ID
     document.getElementById('editDispQty').value = formatNumber(d.DispatchQuantity);
     document.getElementById('editDispRemarks').value = d.Remarks || '';
 
@@ -634,7 +681,7 @@
 
   function submitEditDispatch(e) {
     e.preventDefault();
-    const id = document.getElementById('editDispId').value;
+    const containerNo = document.getElementById('editDispId').value;
     const qty = formatNumber(document.getElementById('editDispQty').value);
     const remarks = document.getElementById('editDispRemarks').value;
 
@@ -651,7 +698,7 @@
           showToast(res.message, true);
         }
       })
-      .updateRecord('DISPATCH', 'DispatchID', id, data);
+      .updateRecordByContainer('DISPATCH', containerNo, data);
   }
 
   // Edit GRN Logic
@@ -664,11 +711,11 @@
     document.getElementById('editGrnQty').value = formatNumber(g.ReceivedQuantity);
     document.getElementById('editGrnRemarks').value = g.Remarks || '';
 
-    // Calculate max allowed qty for edit (current dispatch - other GRNs for same container)
+    // Calculate max allowed qty for edit
     const disp = appData.dispatch.find(d => d.ContainerNumber === g.ContainerNumber);
     if(disp) {
        const otherGrns = appData.grn
-         .filter(x => x.ContainerNumber === g.ContainerNumber && x.GRNNumber !== id)
+         .filter(x => x.ContainerNumber === g.ContainerNumber && x.GRNNumber !== g.GRNNumber)
          .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
        const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
        document.getElementById('editGrnQty').max = maxAllowed;
@@ -682,14 +729,15 @@
   function submitEditGrn(e) {
     e.preventDefault();
     const id = document.getElementById('editGrnId').value;
-    const container = document.getElementById('editGrnContainer').value;
+    const containerNo = document.getElementById('editGrnContainer').value;
     const qty = formatNumber(document.getElementById('editGrnQty').value);
     const remarks = document.getElementById('editGrnRemarks').value;
 
-    const disp = appData.dispatch.find(d => d.ContainerNumber === container);
-    if (disp) {
+    const g = appData.grn.find(x => x.GRNNumber === id);
+    const disp = appData.dispatch.find(d => d.ContainerNumber === containerNo);
+    if (disp && g) {
        const otherGrns = appData.grn
-         .filter(x => x.ContainerNumber === container && x.GRNNumber !== id)
+         .filter(x => x.ContainerNumber === containerNo && x.GRNNumber !== g.GRNNumber)
          .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
        const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
        if (qty > maxAllowed) {
@@ -749,6 +797,37 @@
         }
       })
       .updateRecord('INVOICE', 'InvoiceNumber', id, data);
+  }
+
+  // Not Received Logic
+  let notRecvModalInst;
+  function openNotReceived(containerNo) {
+    document.getElementById('notRecvContainer').value = containerNo;
+    document.getElementById('notRecvContainerDisplay').textContent = containerNo;
+    document.getElementById('notRecvRemarks').value = '';
+
+    if(!notRecvModalInst) notRecvModalInst = new bootstrap.Modal(document.getElementById('notReceivedModal'));
+    notRecvModalInst.show();
+  }
+
+  function submitNotReceived(e) {
+    e.preventDefault();
+    const containerNo = document.getElementById('notRecvContainer').value;
+    const remarks = document.getElementById('notRecvRemarks').value;
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast(`Container ${containerNo} marked as Not Received!`);
+          notRecvModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .markContainerNotReceived(containerNo, remarks);
   }
 
   function filterTable(inputId, tableId) {
