@@ -158,45 +158,52 @@
         <!-- DISPATCH VIEW -->
         <div id="dispatch-view" class="view-section d-none">
           <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white fw-bold">Add Dispatch Entry</div>
+            <div class="card-header bg-white fw-bold">Add Bulk Dispatch Entry</div>
             <div class="card-body">
-              <form id="formDispatch" onsubmit="handleDispatchSubmit(event)">
-                <div class="row g-3">
-                  <div class="col-md-3">
+              <form id="formDispatchBulk" onsubmit="handleDispatchBulkSubmit(event)">
+                <h5 class="mb-3 text-primary border-bottom pb-2">Header Details</h5>
+                <div class="row g-3 mb-4">
+                  <div class="col-md-4">
                     <label class="form-label">Dispatch Date</label>
-                    <input type="date" class="form-control" id="dispDate" required>
+                    <input type="date" class="form-control" id="dispDateBulk" required>
                   </div>
-                  <div class="col-md-3">
+                  <div class="col-md-4">
                     <label class="form-label">Vendor Name</label>
-                    <select class="form-select vendor-dropdown" id="dispVendor" required>
+                    <select class="form-select vendor-dropdown" id="dispVendorBulk" required>
                       <option value="">Select Vendor...</option>
                     </select>
                   </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Item Name</label>
-                    <select class="form-select item-dropdown" id="dispItem" required>
-                      <option value="">Select Item...</option>
-                    </select>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Container Number</label>
-                    <input type="text" class="form-control text-uppercase" id="dispContainer" required>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Vehicle Number</label>
-                    <input type="text" class="form-control text-uppercase" id="dispVehicle" required>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Dispatch Quantity (MT)</label>
-                    <input type="number" step="0.01" class="form-control" id="dispQty" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Remarks</label>
-                    <input type="text" class="form-control" id="dispRemarks">
+                  <div class="col-md-4">
+                    <label class="form-label">Invoice Number (Optional Ref)</label>
+                    <input type="text" class="form-control text-uppercase" id="dispRefInvoice" placeholder="E.g. INV-12345">
                   </div>
                 </div>
+
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                    <h5 class="mb-0 text-primary">Containers</h5>
+                    <button type="button" class="btn btn-sm btn-outline-success" onclick="addDispatchRow()"><i class="fas fa-plus me-1"></i>Add Row</button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm" id="dispatchLinesTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 20%">Item Name</th>
+                                <th style="width: 20%">Container No</th>
+                                <th style="width: 15%">Vehicle No</th>
+                                <th style="width: 15%">Qty (MT)</th>
+                                <th style="width: 20%">Remarks</th>
+                                <th style="width: 10%" class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dynamic rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
                 <div class="mt-3">
-                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Dispatch</button>
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Bulk Dispatch</button>
                 </div>
               </form>
             </div>
@@ -207,42 +214,45 @@
         <!-- GRN VIEW -->
         <div id="grn-view" class="view-section d-none">
           <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white fw-bold">Create GRN</div>
+            <div class="card-header bg-white fw-bold">Create GRN against Dispatch</div>
             <div class="card-body">
-              <form id="formGRN" onsubmit="handleGRNSubmit(event)">
-                <div class="row g-3">
-                  <div class="col-md-3">
+              <form id="formGRNBulk" onsubmit="handleGRNBulkSubmit(event)">
+                <div class="row g-3 mb-4">
+                  <div class="col-md-4">
                     <label class="form-label">Receipt Date</label>
-                    <input type="date" class="form-control" id="grnDate" required>
+                    <input type="date" class="form-control" id="grnDateBulk" required>
                   </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Container Number</label>
-                    <input type="text" class="form-control text-uppercase" id="grnContainer" list="pendingContainersList" required autocomplete="off" onblur="handleGRNContainerSelect()">
-                    <datalist id="pendingContainersList"></datalist>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Vendor Name</label>
-                    <input type="text" class="form-control" id="grnVendor" readonly required>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Item Name</label>
-                    <input type="text" class="form-control" id="grnItem" readonly required>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Dispatched Qty (MT)</label>
-                    <input type="number" step="0.01" class="form-control" id="grnDispQty" readonly>
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label">Received Quantity (MT)</label>
-                    <input type="number" step="0.01" class="form-control" id="grnQty" required>
-                  </div>
-                  <div class="col-md-6">
-                    <label class="form-label">Remarks</label>
-                    <input type="text" class="form-control" id="grnRemarks">
+                  <div class="col-md-8">
+                    <label class="form-label">Select Pending Dispatch</label>
+                    <select class="form-select" id="grnDispatchSelect" required onchange="loadGRNContainers()">
+                      <option value="">Select a Dispatch...</option>
+                    </select>
                   </div>
                 </div>
+
+                <div id="grnContainerListContainer" class="d-none">
+                    <h5 class="mb-3 text-primary border-bottom pb-2">Receive Containers</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm" id="grnLinesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Container</th>
+                                    <th>Item</th>
+                                    <th>Dispatch Qty</th>
+                                    <th>Already Recv</th>
+                                    <th style="width: 150px">Receive Now</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div class="mt-3">
-                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save GRN</button>
+                  <button type="submit" class="btn btn-primary" id="grnSubmitBtnBulk" disabled><i class="fas fa-save me-2"></i>Save Bulk GRN</button>
                 </div>
               </form>
             </div>

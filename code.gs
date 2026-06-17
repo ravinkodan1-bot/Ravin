@@ -299,3 +299,76 @@ function updateRecord(sheetName, idColumn, idValue, dataObj) {
 function deleteRecord(sheetName, idColumn, idValue) {
   return updateRecord(sheetName, idColumn, idValue, { 'IsDeleted': true });
 }
+
+function ensureColumn(sheetName, columnName) {
+  const ss = getDb();
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (headers.indexOf(columnName) === -1) {
+    sheet.getRange(1, headers.length + 1).setValue(columnName);
+  }
+}
+
+function saveDispatchBulk(headerData, lineItems) {
+  try {
+    ensureColumn('DISPATCH', 'RefInvoice');
+    const sheet = ensureSheet('DISPATCH', ['DispatchID', 'DispatchDate', 'VendorName', 'ItemName', 'ContainerNumber', 'VehicleNumber', 'DispatchQuantity', 'Remarks', 'IsDeleted', 'CreatedAt', 'RefInvoice']);
+    const dispatchId = getNextSequence('DSP');
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+    lineItems.forEach(item => {
+      let row = new Array(headers.length).fill('');
+      row[headers.indexOf('DispatchID')] = dispatchId;
+      row[headers.indexOf('DispatchDate')] = headerData.DispatchDate;
+      row[headers.indexOf('VendorName')] = headerData.VendorName;
+      row[headers.indexOf('RefInvoice')] = headerData.RefInvoice;
+
+      row[headers.indexOf('ItemName')] = item.ItemName;
+      row[headers.indexOf('ContainerNumber')] = item.ContainerNumber;
+      row[headers.indexOf('VehicleNumber')] = item.VehicleNumber;
+      row[headers.indexOf('DispatchQuantity')] = item.DispatchQuantity;
+      row[headers.indexOf('Remarks')] = item.Remarks;
+
+      row[headers.indexOf('IsDeleted')] = false;
+      row[headers.indexOf('CreatedAt')] = new Date();
+
+      sheet.appendRow(row);
+    });
+    return { success: true, dispatchId: dispatchId };
+  } catch (error) {
+    logError('saveDispatchBulk', error.toString(), '');
+    return { success: false, message: error.toString() };
+  }
+}
+
+function saveGRNBulk(headerData, lineItems) {
+  try {
+    const sheet = ensureSheet('GRN', ['GRNNumber', 'ReceiptDate', 'ContainerNumber', 'VendorName', 'ItemName', 'ReceivedQuantity', 'Remarks', 'IsDeleted', 'CreatedAt']);
+    const grnNumber = getNextSequence('GRN');
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+    lineItems.forEach(item => {
+      if (parseFloat(item.ReceivedQuantity) > 0) {
+        let row = new Array(headers.length).fill('');
+        row[headers.indexOf('GRNNumber')] = grnNumber;
+        row[headers.indexOf('ReceiptDate')] = headerData.ReceiptDate;
+        row[headers.indexOf('VendorName')] = item.VendorName;
+
+        row[headers.indexOf('ItemName')] = item.ItemName;
+        row[headers.indexOf('ContainerNumber')] = item.ContainerNumber;
+        row[headers.indexOf('ReceivedQuantity')] = item.ReceivedQuantity;
+        row[headers.indexOf('Remarks')] = item.Remarks;
+
+        row[headers.indexOf('IsDeleted')] = false;
+        row[headers.indexOf('CreatedAt')] = new Date();
+
+        sheet.appendRow(row);
+      }
+    });
+    return { success: true, grnNumber: grnNumber };
+  } catch (error) {
+    logError('saveGRNBulk', error.toString(), '');
+    return { success: false, message: error.toString() };
+  }
+}

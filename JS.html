@@ -18,6 +18,8 @@
     });
 
     loadAppData();
+    // Initialize first row for Bulk Dispatch form
+    setTimeout(() => { addDispatchRow(); }, 1000);
   });
 
   // Utilities
@@ -81,7 +83,7 @@
         if (res.success) {
           appData = res.data;
           populateDropdowns();
-          populateContainersList();
+          populateGRNDispatchSelect();
           renderDashboard();
           renderMasterTables();
           renderReports();
@@ -109,52 +111,166 @@
   }
 
   // Dispatch logic
-  function handleDispatchSubmit(e) {
-    e.preventDefault();
-    const data = {
-      DispatchDate: document.getElementById('dispDate').value,
-      VendorName: document.getElementById('dispVendor').value,
-      ItemName: document.getElementById('dispItem').value,
-      ContainerNumber: document.getElementById('dispContainer').value.toUpperCase(),
-      VehicleNumber: document.getElementById('dispVehicle').value.toUpperCase(),
-      DispatchQuantity: formatNumber(document.getElementById('dispQty').value),
-      Remarks: document.getElementById('dispRemarks').value
-    };
+  function addDispatchRow() {
+      const tbody = document.querySelector('#dispatchLinesTable tbody');
+      const itemOpts = '<option value="">Select Item...</option>' +
+        appData.items.filter(i => i.Status === 'Active').map(i => `<option value="${escapeHTML(i.ItemName)}">${escapeHTML(i.ItemName)}</option>`).join('');
 
-    // Prevent duplicate container
-    if (appData.dispatch.some(d => d.ContainerNumber === data.ContainerNumber)) {
-      showToast('Container already dispatched!', true);
-      return;
-    }
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+          <td><select class="form-select item-dropdown" required>${itemOpts}</select></td>
+          <td><input type="text" class="form-control text-uppercase" required></td>
+          <td><input type="text" class="form-control text-uppercase"></td>
+          <td><input type="number" step="0.01" class="form-control" required></td>
+          <td><input type="text" class="form-control"></td>
+          <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="fas fa-trash"></i></button></td>
+      `;
+      tbody.appendChild(tr);
+  }
 
-    showLoading(true);
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res.success) {
-          showToast('Dispatch saved successfully! ID: ' + res.dispatchId);
-          document.getElementById('formDispatch').reset();
-          loadAppData(); // Reload to refresh memory state
-        } else {
-          showLoading(false);
-          showToast(res.message, true);
-        }
-      })
-      .saveDispatch(data);
+  function handleDispatchBulkSubmit(e) {
+      e.preventDefault();
+
+      const headerData = {
+          DispatchDate: document.getElementById('dispDateBulk').value,
+          VendorName: document.getElementById('dispVendorBulk').value,
+          RefInvoice: document.getElementById('dispRefInvoice').value.toUpperCase()
+      };
+
+      const rows = document.querySelectorAll('#dispatchLinesTable tbody tr');
+      if (rows.length === 0) {
+          showToast('Please add at least one container row.', true);
+          return;
+      }
+
+      const lineItems = [];
+      const duplicateCheck = new Set();
+
+      for (let i = 0; i < rows.length; i++) {
+          const inputs = rows[i].querySelectorAll('input, select');
+          const containerNo = inputs[1].value.toUpperCase();
+
+          if(duplicateCheck.has(containerNo)) {
+              showToast(`Duplicate container ${containerNo} in form!`, true);
+              return;
+          }
+          if (appData.dispatch.some(d => d.ContainerNumber === containerNo)) {
+              showToast(`Container ${containerNo} already dispatched in database!`, true);
+              return;
+          }
+          duplicateCheck.add(containerNo);
+
+          lineItems.push({
+              ItemName: inputs[0].value,
+              ContainerNumber: containerNo,
+              VehicleNumber: inputs[2].value.toUpperCase(),
+              DispatchQuantity: formatNumber(inputs[3].value),
+              Remarks: inputs[4].value
+          });
+      }
+
+      showLoading(true);
+      google.script.run
+          .withSuccessHandler(res => {
+              if (res.success) {
+                  showToast('Bulk Dispatch saved! ID: ' + res.dispatchId);
+                  document.getElementById('formDispatchBulk').reset();
+                  document.querySelector('#dispatchLinesTable tbody').innerHTML = '';
+                  addDispatchRow(); // Add empty row
+                  loadAppData();
+              } else {
+                  showLoading(false);
+                  showToast(res.message, true);
+              }
+          })
+          .saveDispatchBulk(headerData, lineItems);
   }
 
   // GRN logic
-  function populateContainersList() {
-    const list = document.getElementById('pendingContainersList');
-    list.innerHTML = '';
-    // Only show dispatched containers that are not fully received
-    appData.dispatch.forEach(d => {
-      const received = sumGRNQtyForContainer(d.ContainerNumber);
-      if (received < formatNumber(d.DispatchQuantity)) {
-        const opt = document.createElement('option');
-        opt.value = d.ContainerNumber;
-        list.appendChild(opt);
+  function populateGRNDispatchSelect() {
+      const select = document.getElementById('grnDispatchSelect');
+      select.innerHTML = '<option value="">Select a Dispatch...</option>';
+
+      // Group active dispatches (that have pending quantities)
+      const dispatchGroups = {};
+      appData.dispatch.forEach(d => {
+          if(!dispatchGroups[d.DispatchID]) {
+              dispatchGroups[d.DispatchID] = {
+                  id: d.DispatchID,
+                  date: d.DispatchDate,
+                  vendor: d.VendorName,
+                  ref: d.RefInvoice || '',
+                  hasPending: false
+              };
+          }
+          const received = sumGRNQtyForContainer(d.ContainerNumber);
+          if (received < formatNumber(d.DispatchQuantity)) {
+              dispatchGroups[d.DispatchID].hasPending = true;
+          }
+      });
+
+      Object.values(dispatchGroups).filter(g => g.hasPending).forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = `${g.id} - ${g.vendor} (${g.date}) ${g.ref ? '['+g.ref+']' : ''}`;
+          select.appendChild(opt);
+      });
+  }
+
+  function loadGRNContainers() {
+      const dispatchId = document.getElementById('grnDispatchSelect').value;
+      const containerDiv = document.getElementById('grnContainerListContainer');
+      const tbody = document.querySelector('#grnLinesTable tbody');
+      const btn = document.getElementById('grnSubmitBtnBulk');
+
+      tbody.innerHTML = '';
+
+      if(!dispatchId) {
+          containerDiv.classList.add('d-none');
+          btn.disabled = true;
+          return;
       }
-    });
+
+      const containers = appData.dispatch.filter(d => d.DispatchID === dispatchId);
+      let validRowsCount = 0;
+
+      containers.forEach(d => {
+          const dispQty = formatNumber(d.DispatchQuantity);
+          const alreadyReceived = sumGRNQtyForContainer(d.ContainerNumber);
+          const maxAllowed = dispQty - alreadyReceived;
+
+          if(maxAllowed > 0) {
+              validRowsCount++;
+              const tr = document.createElement('tr');
+              tr.dataset.container = d.ContainerNumber;
+              tr.dataset.item = d.ItemName;
+              tr.dataset.vendor = d.VendorName;
+              tr.dataset.max = maxAllowed;
+
+              tr.innerHTML = `
+                  <td>${escapeHTML(d.ContainerNumber)}</td>
+                  <td>${escapeHTML(d.ItemName)}</td>
+                  <td>${dispQty}</td>
+                  <td>${alreadyReceived}</td>
+                  <td>
+                      <input type="number" step="0.01" class="form-control form-control-sm grn-recv-qty" max="${maxAllowed}" placeholder="Max: ${maxAllowed}">
+                  </td>
+                  <td>
+                      <input type="text" class="form-control form-control-sm grn-recv-remarks">
+                  </td>
+              `;
+              tbody.appendChild(tr);
+          }
+      });
+
+      if(validRowsCount > 0) {
+          containerDiv.classList.remove('d-none');
+          btn.disabled = false;
+      } else {
+          containerDiv.classList.add('d-none');
+          btn.disabled = true;
+          showToast('No pending containers left in this dispatch.');
+      }
   }
 
   function sumGRNQtyForContainer(containerNo) {
@@ -163,71 +279,62 @@
       .reduce((sum, g) => sum + formatNumber(g.ReceivedQuantity), 0);
   }
 
-  function handleGRNContainerSelect() {
-    const container = document.getElementById('grnContainer').value.toUpperCase();
-    if (!container) return;
+  function handleGRNBulkSubmit(e) {
+      e.preventDefault();
 
-    const dispatch = appData.dispatch.find(d => d.ContainerNumber === container);
-    if (dispatch) {
-      document.getElementById('grnVendor').value = dispatch.VendorName;
-      document.getElementById('grnItem').value = dispatch.ItemName;
-      document.getElementById('grnDispQty').value = dispatch.DispatchQuantity;
+      const headerData = {
+          ReceiptDate: document.getElementById('grnDateBulk').value
+      };
 
-      // Calculate remaining qty allowed
-      const alreadyReceived = sumGRNQtyForContainer(container);
-      const remaining = formatNumber(dispatch.DispatchQuantity) - alreadyReceived;
-      document.getElementById('grnQty').max = remaining;
-      document.getElementById('grnQty').value = remaining; // Suggest remaining
-    } else {
-      document.getElementById('grnVendor').value = '';
-      document.getElementById('grnItem').value = '';
-      document.getElementById('grnDispQty').value = '';
-      document.getElementById('grnQty').max = '';
-      showToast('Container not found in Dispatch records!', true);
-    }
-  }
+      const rows = document.querySelectorAll('#grnLinesTable tbody tr');
+      const lineItems = [];
+      let totalRecv = 0;
 
-  function handleGRNSubmit(e) {
-    e.preventDefault();
-    const container = document.getElementById('grnContainer').value.toUpperCase();
-    const grnQty = formatNumber(document.getElementById('grnQty').value);
+      for(let i=0; i<rows.length; i++) {
+          const inputQty = rows[i].querySelector('.grn-recv-qty');
+          const inputRemarks = rows[i].querySelector('.grn-recv-remarks');
 
-    const dispatch = appData.dispatch.find(d => d.ContainerNumber === container);
-    if (!dispatch) {
-      showToast('Invalid Container Number.', true);
-      return;
-    }
+          const val = inputQty.value;
+          if(val && parseFloat(val) > 0) {
+              const qty = formatNumber(val);
+              const max = parseFloat(rows[i].dataset.max);
 
-    const alreadyReceived = sumGRNQtyForContainer(container);
-    const maxAllowed = formatNumber(dispatch.DispatchQuantity) - alreadyReceived;
+              if(qty > max) {
+                  showToast(`Container ${rows[i].dataset.container} received qty exceeds allowed max (${max})`, true);
+                  return;
+              }
 
-    if (grnQty > maxAllowed) {
-      showToast(`Cannot receive more than Dispatched Qty. Max allowed: ${maxAllowed}`, true);
-      return;
-    }
+              totalRecv += qty;
+              lineItems.push({
+                  ContainerNumber: rows[i].dataset.container,
+                  VendorName: rows[i].dataset.vendor,
+                  ItemName: rows[i].dataset.item,
+                  ReceivedQuantity: qty,
+                  Remarks: inputRemarks.value
+              });
+          }
+      }
 
-    const data = {
-      ReceiptDate: document.getElementById('grnDate').value,
-      ContainerNumber: container,
-      VendorName: dispatch.VendorName,
-      ItemName: dispatch.ItemName,
-      ReceivedQuantity: grnQty,
-      Remarks: document.getElementById('grnRemarks').value
-    };
+      if(totalRecv === 0) {
+          showToast('Please enter received quantity for at least one container.', true);
+          return;
+      }
 
-    showLoading(true);
-    google.script.run
-      .withSuccessHandler(res => {
-        if (res.success) {
-          showToast('GRN saved successfully! No: ' + res.grnNumber);
-          document.getElementById('formGRN').reset();
-          loadAppData();
-        } else {
-          showLoading(false);
-          showToast(res.message, true);
-        }
-      })
-      .saveGRN(data);
+      showLoading(true);
+      google.script.run
+          .withSuccessHandler(res => {
+              if (res.success) {
+                  showToast('Bulk GRN saved! No: ' + res.grnNumber);
+                  document.getElementById('formGRNBulk').reset();
+                  document.getElementById('grnContainerListContainer').classList.add('d-none');
+                  document.getElementById('grnSubmitBtnBulk').disabled = true;
+                  loadAppData();
+              } else {
+                  showLoading(false);
+                  showToast(res.message, true);
+              }
+          })
+          .saveGRNBulk(headerData, lineItems);
   }
 
   // Invoice Logic
