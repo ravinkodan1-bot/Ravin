@@ -465,6 +465,7 @@
         <td>${escapeHTML(d.ContainerNumber)}</td>
         <td>${formatNumber(d.DispatchQuantity)}</td>
         <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditDispatch('${d.DispatchID}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('DISPATCH', 'DispatchID', '${d.DispatchID}')"><i class="fas fa-trash"></i></button>
         </td>
       </tr>
@@ -487,6 +488,7 @@
         <td>${rec}</td>
         <td>${status}</td>
         <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditGrn('${g.GRNNumber}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('GRN', 'GRNNumber', '${g.GRNNumber}')"><i class="fas fa-trash"></i></button>
         </td>
       </tr>
@@ -503,10 +505,143 @@
         <td>${formatNumber(i.InvoiceQuantity)}</td>
         <td>${formatNumber(i.InvoiceAmount)}</td>
         <td>
+          <button class="btn btn-sm btn-outline-primary" onclick="openEditInvoice('${i.InvoiceNumber}')"><i class="fas fa-edit"></i></button>
           <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('INVOICE', 'InvoiceNumber', '${i.InvoiceNumber}')"><i class="fas fa-trash"></i></button>
         </td>
       </tr>
     `).join('');
+  }
+
+  // Edit Dispatch Logic
+  let editDispModalInst;
+  function openEditDispatch(id) {
+    const d = appData.dispatch.find(x => x.DispatchID === id);
+    if (!d) return;
+    document.getElementById('editDispId').value = d.DispatchID;
+    document.getElementById('editDispQty').value = formatNumber(d.DispatchQuantity);
+    document.getElementById('editDispRemarks').value = d.Remarks || '';
+
+    if (!editDispModalInst) editDispModalInst = new bootstrap.Modal(document.getElementById('editDispatchModal'));
+    editDispModalInst.show();
+  }
+
+  function submitEditDispatch(e) {
+    e.preventDefault();
+    const id = document.getElementById('editDispId').value;
+    const qty = formatNumber(document.getElementById('editDispQty').value);
+    const remarks = document.getElementById('editDispRemarks').value;
+
+    const data = { DispatchQuantity: qty, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Dispatch updated');
+          editDispModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord('DISPATCH', 'DispatchID', id, data);
+  }
+
+  // Edit GRN Logic
+  let editGrnModalInst;
+  function openEditGrn(id) {
+    const g = appData.grn.find(x => x.GRNNumber === id);
+    if (!g) return;
+    document.getElementById('editGrnId').value = g.GRNNumber;
+    document.getElementById('editGrnContainer').value = g.ContainerNumber;
+    document.getElementById('editGrnQty').value = formatNumber(g.ReceivedQuantity);
+    document.getElementById('editGrnRemarks').value = g.Remarks || '';
+
+    // Calculate max allowed qty for edit (current dispatch - other GRNs for same container)
+    const disp = appData.dispatch.find(d => d.ContainerNumber === g.ContainerNumber);
+    if(disp) {
+       const otherGrns = appData.grn
+         .filter(x => x.ContainerNumber === g.ContainerNumber && x.GRNNumber !== id)
+         .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
+       const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
+       document.getElementById('editGrnQty').max = maxAllowed;
+       document.getElementById('editGrnMaxHelp').textContent = `Max allowed: ${maxAllowed} MT`;
+    }
+
+    if (!editGrnModalInst) editGrnModalInst = new bootstrap.Modal(document.getElementById('editGrnModal'));
+    editGrnModalInst.show();
+  }
+
+  function submitEditGrn(e) {
+    e.preventDefault();
+    const id = document.getElementById('editGrnId').value;
+    const container = document.getElementById('editGrnContainer').value;
+    const qty = formatNumber(document.getElementById('editGrnQty').value);
+    const remarks = document.getElementById('editGrnRemarks').value;
+
+    const disp = appData.dispatch.find(d => d.ContainerNumber === container);
+    if (disp) {
+       const otherGrns = appData.grn
+         .filter(x => x.ContainerNumber === container && x.GRNNumber !== id)
+         .reduce((sum, x) => sum + formatNumber(x.ReceivedQuantity), 0);
+       const maxAllowed = formatNumber(disp.DispatchQuantity) - otherGrns;
+       if (qty > maxAllowed) {
+           showToast(`Cannot receive more than Dispatched Qty. Max allowed: ${maxAllowed}`, true);
+           return;
+       }
+    }
+
+    const data = { ReceivedQuantity: qty, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('GRN updated');
+          editGrnModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord('GRN', 'GRNNumber', id, data);
+  }
+
+  // Edit Invoice Logic
+  let editInvModalInst;
+  function openEditInvoice(id) {
+    const i = appData.invoice.find(x => x.InvoiceNumber === id);
+    if (!i) return;
+    document.getElementById('editInvId').value = i.InvoiceNumber;
+    document.getElementById('editInvQty').value = formatNumber(i.InvoiceQuantity);
+    document.getElementById('editInvAmt').value = formatNumber(i.InvoiceAmount);
+    document.getElementById('editInvRemarks').value = i.Remarks || '';
+
+    if (!editInvModalInst) editInvModalInst = new bootstrap.Modal(document.getElementById('editInvoiceModal'));
+    editInvModalInst.show();
+  }
+
+  function submitEditInvoice(e) {
+    e.preventDefault();
+    const id = document.getElementById('editInvId').value;
+    const qty = formatNumber(document.getElementById('editInvQty').value);
+    const amt = formatNumber(document.getElementById('editInvAmt').value);
+    const remarks = document.getElementById('editInvRemarks').value;
+
+    const data = { InvoiceQuantity: qty, InvoiceAmount: amt, Remarks: remarks };
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Invoice updated');
+          editInvModalInst.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord('INVOICE', 'InvoiceNumber', id, data);
   }
 
   function filterTable(inputId, tableId) {

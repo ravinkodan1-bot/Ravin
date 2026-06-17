@@ -32,25 +32,25 @@
         <i class="fas fa-boxes me-2"></i> Recon App
       </div>
       <div class="list-group list-group-flush my-3">
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold active" onclick="showView('dashboard-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold active" onclick="showView('dashboard-view')">
           <i class="fas fa-tachometer-alt me-2"></i> Dashboard
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('dispatch-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('dispatch-view')">
           <i class="fas fa-truck-loading me-2"></i> Dispatch
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('grn-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('grn-view')">
           <i class="fas fa-clipboard-check me-2"></i> GRN Entry
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('invoice-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('invoice-view')">
           <i class="fas fa-file-invoice-dollar me-2"></i> Invoice
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('container-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('container-view')">
           <i class="fas fa-box-open me-2"></i> Containers
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('reports-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('reports-view')">
           <i class="fas fa-chart-bar me-2"></i> Reports
         </a>
-        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('master-view')">
+        <a href="javascript:void(0)" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('master-view')">
           <i class="fas fa-database me-2"></i> Master Data
         </a>
       </div>
@@ -474,6 +474,90 @@
               <input type="text" class="form-control" id="masterName" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Save</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Dispatch Modal -->
+  <div class="modal fade" id="editDispatchModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Dispatch</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditDispatch" onsubmit="submitEditDispatch(event)">
+            <input type="hidden" id="editDispId">
+            <div class="mb-3">
+              <label class="form-label">Dispatch Quantity (MT)</label>
+              <input type="number" step="0.01" class="form-control" id="editDispQty" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Remarks</label>
+              <input type="text" class="form-control" id="editDispRemarks">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Update Dispatch</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit GRN Modal -->
+  <div class="modal fade" id="editGrnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit GRN</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditGrn" onsubmit="submitEditGrn(event)">
+            <input type="hidden" id="editGrnId">
+            <input type="hidden" id="editGrnContainer">
+            <div class="mb-3">
+              <label class="form-label">Received Quantity (MT)</label>
+              <input type="number" step="0.01" class="form-control" id="editGrnQty" required>
+              <div class="form-text" id="editGrnMaxHelp"></div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Remarks</label>
+              <input type="text" class="form-control" id="editGrnRemarks">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Update GRN</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Invoice Modal -->
+  <div class="modal fade" id="editInvoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Invoice</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditInvoice" onsubmit="submitEditInvoice(event)">
+            <input type="hidden" id="editInvId">
+            <div class="mb-3">
+              <label class="form-label">Invoice Quantity (MT)</label>
+              <input type="number" step="0.01" class="form-control" id="editInvQty" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Invoice Amount</label>
+              <input type="number" step="0.01" class="form-control" id="editInvAmt" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Remarks</label>
+              <input type="text" class="form-control" id="editInvRemarks">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Update Invoice</button>
           </form>
         </div>
       </div>
