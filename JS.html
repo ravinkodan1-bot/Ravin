@@ -1,0 +1,590 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // State
+  let appData = {
+    vendors: [],
+    items: [],
+    dispatch: [],
+    grn: [],
+    invoice: []
+  };
+
+  // Initialization
+  document.addEventListener("DOMContentLoaded", () => {
+    // Menu Toggle
+    document.getElementById("menu-toggle").addEventListener("click", function(e) {
+      e.preventDefault();
+      document.getElementById("wrapper").classList.toggle("toggled");
+    });
+
+    loadAppData();
+  });
+
+  // Utilities
+  function showLoading(show) {
+    const el = document.getElementById('loadingOverlay');
+    if (show) el.classList.remove('d-none');
+    else el.classList.add('d-none');
+  }
+
+  function showToast(message, isError = false) {
+    const toastEl = document.getElementById('liveToast');
+    const toastBody = document.getElementById('toastMessage');
+    toastBody.textContent = message;
+
+    toastEl.classList.remove('text-bg-success', 'text-bg-danger');
+    toastEl.classList.add(isError ? 'text-bg-danger' : 'text-bg-success');
+
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+  }
+
+  function escapeHTML(str) {
+    if (!str) return '';
+    return str.toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatNumber(num) {
+    return Number(parseFloat(num || 0).toFixed(2));
+  }
+
+  // Navigation
+  function showView(viewId) {
+    document.querySelectorAll('.view-section').forEach(el => el.classList.add('d-none'));
+    document.getElementById(viewId).classList.remove('d-none');
+
+    // Update sidebar active state
+    document.querySelectorAll('#sidebar-wrapper .list-group-item').forEach(el => {
+      el.classList.remove('active');
+      if(el.getAttribute('onclick').includes(viewId)) {
+        el.classList.add('active');
+        document.getElementById('pageTitle').textContent = el.textContent.trim();
+      }
+    });
+
+    if (viewId === 'dashboard-view') renderDashboard();
+    if (viewId === 'container-view') renderContainerTracking();
+    if (viewId === 'reports-view') renderReports();
+  }
+
+  // Data Loading
+  function loadAppData() {
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        showLoading(false);
+        if (res.success) {
+          appData = res.data;
+          populateDropdowns();
+          populateContainersList();
+          renderDashboard();
+          renderMasterTables();
+          renderReports();
+          renderContainerTracking();
+        } else {
+          showToast('Failed to load data: ' + res.message, true);
+        }
+      })
+      .withFailureHandler(err => {
+        showLoading(false);
+        showToast('Error: ' + err.message, true);
+      })
+      .getAppData();
+  }
+
+  function populateDropdowns() {
+    const vendorOpts = '<option value="">Select Vendor...</option>' +
+      appData.vendors.filter(v => v.Status === 'Active').map(v => `<option value="${escapeHTML(v.VendorName)}">${escapeHTML(v.VendorName)}</option>`).join('');
+
+    const itemOpts = '<option value="">Select Item...</option>' +
+      appData.items.filter(i => i.Status === 'Active').map(i => `<option value="${escapeHTML(i.ItemName)}">${escapeHTML(i.ItemName)}</option>`).join('');
+
+    document.querySelectorAll('.vendor-dropdown').forEach(el => el.innerHTML = vendorOpts);
+    document.querySelectorAll('.item-dropdown').forEach(el => el.innerHTML = itemOpts);
+  }
+
+  // Dispatch logic
+  function handleDispatchSubmit(e) {
+    e.preventDefault();
+    const data = {
+      DispatchDate: document.getElementById('dispDate').value,
+      VendorName: document.getElementById('dispVendor').value,
+      ItemName: document.getElementById('dispItem').value,
+      ContainerNumber: document.getElementById('dispContainer').value.toUpperCase(),
+      VehicleNumber: document.getElementById('dispVehicle').value.toUpperCase(),
+      DispatchQuantity: formatNumber(document.getElementById('dispQty').value),
+      Remarks: document.getElementById('dispRemarks').value
+    };
+
+    // Prevent duplicate container
+    if (appData.dispatch.some(d => d.ContainerNumber === data.ContainerNumber)) {
+      showToast('Container already dispatched!', true);
+      return;
+    }
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast('Dispatch saved successfully! ID: ' + res.dispatchId);
+          document.getElementById('formDispatch').reset();
+          loadAppData(); // Reload to refresh memory state
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .saveDispatch(data);
+  }
+
+  // GRN logic
+  function populateContainersList() {
+    const list = document.getElementById('pendingContainersList');
+    list.innerHTML = '';
+    // Only show dispatched containers that are not fully received
+    appData.dispatch.forEach(d => {
+      const received = sumGRNQtyForContainer(d.ContainerNumber);
+      if (received < formatNumber(d.DispatchQuantity)) {
+        const opt = document.createElement('option');
+        opt.value = d.ContainerNumber;
+        list.appendChild(opt);
+      }
+    });
+  }
+
+  function sumGRNQtyForContainer(containerNo) {
+    return appData.grn
+      .filter(g => g.ContainerNumber === containerNo)
+      .reduce((sum, g) => sum + formatNumber(g.ReceivedQuantity), 0);
+  }
+
+  function handleGRNContainerSelect() {
+    const container = document.getElementById('grnContainer').value.toUpperCase();
+    if (!container) return;
+
+    const dispatch = appData.dispatch.find(d => d.ContainerNumber === container);
+    if (dispatch) {
+      document.getElementById('grnVendor').value = dispatch.VendorName;
+      document.getElementById('grnItem').value = dispatch.ItemName;
+      document.getElementById('grnDispQty').value = dispatch.DispatchQuantity;
+
+      // Calculate remaining qty allowed
+      const alreadyReceived = sumGRNQtyForContainer(container);
+      const remaining = formatNumber(dispatch.DispatchQuantity) - alreadyReceived;
+      document.getElementById('grnQty').max = remaining;
+      document.getElementById('grnQty').value = remaining; // Suggest remaining
+    } else {
+      document.getElementById('grnVendor').value = '';
+      document.getElementById('grnItem').value = '';
+      document.getElementById('grnDispQty').value = '';
+      document.getElementById('grnQty').max = '';
+      showToast('Container not found in Dispatch records!', true);
+    }
+  }
+
+  function handleGRNSubmit(e) {
+    e.preventDefault();
+    const container = document.getElementById('grnContainer').value.toUpperCase();
+    const grnQty = formatNumber(document.getElementById('grnQty').value);
+
+    const dispatch = appData.dispatch.find(d => d.ContainerNumber === container);
+    if (!dispatch) {
+      showToast('Invalid Container Number.', true);
+      return;
+    }
+
+    const alreadyReceived = sumGRNQtyForContainer(container);
+    const maxAllowed = formatNumber(dispatch.DispatchQuantity) - alreadyReceived;
+
+    if (grnQty > maxAllowed) {
+      showToast(`Cannot receive more than Dispatched Qty. Max allowed: ${maxAllowed}`, true);
+      return;
+    }
+
+    const data = {
+      ReceiptDate: document.getElementById('grnDate').value,
+      ContainerNumber: container,
+      VendorName: dispatch.VendorName,
+      ItemName: dispatch.ItemName,
+      ReceivedQuantity: grnQty,
+      Remarks: document.getElementById('grnRemarks').value
+    };
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast('GRN saved successfully! No: ' + res.grnNumber);
+          document.getElementById('formGRN').reset();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .saveGRN(data);
+  }
+
+  // Invoice Logic
+  function handleInvoiceSubmit(e) {
+    e.preventDefault();
+    const data = {
+      InvoiceNumber: document.getElementById('invNumber').value.toUpperCase(),
+      InvoiceDate: document.getElementById('invDate').value,
+      VendorName: document.getElementById('invVendor').value,
+      ItemName: document.getElementById('invItem').value,
+      InvoiceQuantity: formatNumber(document.getElementById('invQty').value),
+      InvoiceAmount: formatNumber(document.getElementById('invAmt').value),
+      Remarks: document.getElementById('invRemarks').value
+    };
+
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast('Invoice saved successfully!');
+          document.getElementById('formInvoice').reset();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .saveInvoice(data);
+  }
+
+  // Master Data Logic
+  let masterModalInstance;
+  function showMasterModal(type) {
+    document.getElementById('masterType').value = type;
+    document.getElementById('masterModalTitle').textContent = `Add ${type}`;
+    document.getElementById('masterNameLabel').textContent = `${type} Name`;
+    document.getElementById('masterName').value = '';
+
+    if(!masterModalInstance) {
+      masterModalInstance = new bootstrap.Modal(document.getElementById('masterModal'));
+    }
+    masterModalInstance.show();
+  }
+
+  function handleMasterSubmit(e) {
+    e.preventDefault();
+    const type = document.getElementById('masterType').value;
+    const name = document.getElementById('masterName').value;
+
+    showLoading(true);
+    const apiCall = type === 'Vendor' ? google.script.run.saveVendor : google.script.run.saveItem;
+
+    apiCall({ [type+'Name']: name })
+      .withSuccessHandler(res => {
+        if (res.success) {
+          showToast(`${type} saved!`);
+          masterModalInstance.hide();
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      });
+  }
+
+  function renderMasterTables() {
+    const vBody = document.querySelector('#vendorTable tbody');
+    vBody.innerHTML = appData.vendors.map(v => `<tr>
+      <td>${escapeHTML(v.VendorName)}</td>
+      <td>${v.Status}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleMasterStatus('VENDORS', 'VendorID', '${v.VendorID}', '${v.Status}')"><i class="fas fa-sync-alt"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('VENDORS', 'VendorID', '${v.VendorID}')"><i class="fas fa-trash"></i></button>
+      </td>
+      </tr>`).join('');
+
+    const iBody = document.querySelector('#itemTable tbody');
+    iBody.innerHTML = appData.items.map(i => `<tr>
+      <td>${escapeHTML(i.ItemName)}</td>
+      <td>${i.Status}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleMasterStatus('ITEMS', 'ItemID', '${i.ItemID}', '${i.Status}')"><i class="fas fa-sync-alt"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('ITEMS', 'ItemID', '${i.ItemID}')"><i class="fas fa-trash"></i></button>
+      </td>
+      </tr>`).join('');
+  }
+
+  function toggleMasterStatus(sheet, idCol, idVal, currentStatus) {
+    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Status updated');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .updateRecord(sheet, idCol, idVal, { Status: newStatus });
+  }
+
+  function deleteRecordUI(sheet, idCol, idVal) {
+    if(!confirm("Are you sure you want to delete this record?")) return;
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res.success) {
+          showToast('Record deleted');
+          loadAppData();
+        } else {
+          showLoading(false);
+          showToast(res.message, true);
+        }
+      })
+      .deleteRecord(sheet, idCol, idVal);
+  }
+
+  // Dashboard & Logic Calculations
+  function renderDashboard() {
+    let totDisp = 0, totRec = 0, totInv = 0;
+
+    appData.dispatch.forEach(d => totDisp += formatNumber(d.DispatchQuantity));
+    appData.grn.forEach(g => totRec += formatNumber(g.ReceivedQuantity));
+    appData.invoice.forEach(i => totInv += formatNumber(i.InvoiceQuantity));
+
+    const pendingQty = totDisp - totRec;
+
+    let partialCont = 0;
+    let missingCont = 0;
+
+    appData.dispatch.forEach(d => {
+      const rec = sumGRNQtyForContainer(d.ContainerNumber);
+      const disp = formatNumber(d.DispatchQuantity);
+      if (rec === 0) missingCont++;
+      else if (rec > 0 && rec < disp) partialCont++;
+    });
+
+    document.getElementById('dash-dispatch-qty').textContent = formatNumber(totDisp);
+    document.getElementById('dash-received-qty').textContent = formatNumber(totRec);
+    document.getElementById('dash-invoice-qty').textContent = formatNumber(totInv);
+    document.getElementById('dash-pending-qty').textContent = formatNumber(pendingQty);
+    document.getElementById('dash-partial-containers').textContent = partialCont;
+    document.getElementById('dash-missing-containers').textContent = missingCont;
+
+    // Reconciliation Table (Vendor + Item wise)
+    const reconMap = {};
+
+    // Aggregate Dispatch
+    appData.dispatch.forEach(d => {
+      const key = `${d.VendorName}_${d.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: d.VendorName, item: d.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].disp += formatNumber(d.DispatchQuantity);
+    });
+    // Aggregate GRN
+    appData.grn.forEach(g => {
+      const key = `${g.VendorName}_${g.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: g.VendorName, item: g.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].rec += formatNumber(g.ReceivedQuantity);
+    });
+    // Aggregate Invoice
+    appData.invoice.forEach(i => {
+      const key = `${i.VendorName}_${i.ItemName}`;
+      if (!reconMap[key]) reconMap[key] = { vendor: i.VendorName, item: i.ItemName, disp: 0, rec: 0, inv: 0 };
+      reconMap[key].inv += formatNumber(i.InvoiceQuantity);
+    });
+
+    const tbody = document.querySelector('#reconTable tbody');
+    tbody.innerHTML = '';
+
+    Object.values(reconMap).forEach(row => {
+      const diff = formatNumber(row.inv - row.rec);
+      let statusHtml = '';
+
+      // Alerts Logic
+      if (row.disp > row.rec) statusHtml += `<span class="badge bg-warning text-dark me-1">Pending Rec</span>`;
+      if (row.inv > row.rec) statusHtml += `<span class="badge bg-danger">Inv > Rec</span>`;
+      if (!statusHtml && row.disp === row.rec && row.inv === row.rec) statusHtml = `<span class="badge bg-success">Matched</span>`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${escapeHTML(row.vendor)}</td>
+          <td>${escapeHTML(row.item)}</td>
+          <td>${formatNumber(row.disp)}</td>
+          <td>${formatNumber(row.rec)}</td>
+          <td>${formatNumber(row.inv)}</td>
+          <td class="${diff > 0 ? 'text-danger fw-bold' : ''}">${diff}</td>
+          <td>${statusHtml}</td>
+        </tr>
+      `;
+    });
+  }
+
+  // Container Tracking
+  function renderContainerTracking() {
+    const tbody = document.querySelector('#containerTable tbody');
+    tbody.innerHTML = '';
+
+    appData.dispatch.forEach(d => {
+      const disp = formatNumber(d.DispatchQuantity);
+      const rec = sumGRNQtyForContainer(d.ContainerNumber);
+
+      let statusClass = 'badge-received';
+      let statusText = 'Received';
+
+      if (rec === 0) {
+        statusClass = 'badge-pending';
+        statusText = 'Pending';
+      } else if (rec > 0 && rec < disp) {
+        statusClass = 'badge-partial';
+        statusText = 'Partial';
+      }
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${escapeHTML(d.ContainerNumber)}</td>
+          <td>${disp}</td>
+          <td>${rec}</td>
+          <td><span class="${statusClass}">${statusText}</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  // Reports
+  function renderReports() {
+    // Dispatch
+    document.querySelector('#tbl-rep-disp tbody').innerHTML = appData.dispatch.map(d => `
+      <tr>
+        <td>${escapeHTML(d.DispatchID)}</td>
+        <td>${escapeHTML(d.DispatchDate)}</td>
+        <td>${escapeHTML(d.VendorName)}</td>
+        <td>${escapeHTML(d.ItemName)}</td>
+        <td>${escapeHTML(d.ContainerNumber)}</td>
+        <td>${formatNumber(d.DispatchQuantity)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('DISPATCH', 'DispatchID', '${d.DispatchID}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+
+    // GRN
+    document.querySelector('#tbl-rep-grn tbody').innerHTML = appData.grn.map(g => {
+      const disp = appData.dispatch.find(d => d.ContainerNumber === g.ContainerNumber);
+      const dispQty = disp ? formatNumber(disp.DispatchQuantity) : 0;
+      const rec = formatNumber(g.ReceivedQuantity);
+      let status = rec === dispQty ? 'Received' : 'Partial';
+
+      return `
+      <tr>
+        <td>${escapeHTML(g.GRNNumber)}</td>
+        <td>${escapeHTML(g.ReceiptDate)}</td>
+        <td>${escapeHTML(g.ContainerNumber)}</td>
+        <td>${escapeHTML(g.VendorName)}</td>
+        <td>${escapeHTML(g.ItemName)}</td>
+        <td>${rec}</td>
+        <td>${status}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('GRN', 'GRNNumber', '${g.GRNNumber}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+      `
+    }).join('');
+
+    // Invoice
+    document.querySelector('#tbl-rep-inv tbody').innerHTML = appData.invoice.map(i => `
+      <tr>
+        <td>${escapeHTML(i.InvoiceNumber)}</td>
+        <td>${escapeHTML(i.InvoiceDate)}</td>
+        <td>${escapeHTML(i.VendorName)}</td>
+        <td>${escapeHTML(i.ItemName)}</td>
+        <td>${formatNumber(i.InvoiceQuantity)}</td>
+        <td>${formatNumber(i.InvoiceAmount)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteRecordUI('INVOICE', 'InvoiceNumber', '${i.InvoiceNumber}')"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterTable(inputId, tableId) {
+    const input = document.getElementById(inputId);
+    const filter = input.value.toUpperCase();
+    const table = document.getElementById(tableId);
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+      let visible = false;
+      const tds = tr[i].getElementsByTagName("td");
+      // Skip the last "Actions" column
+      for (let j = 0; j < tds.length - 1; j++) {
+        if (tds[j]) {
+          const txtValue = tds[j].textContent || tds[j].innerText;
+          if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            visible = true;
+            break;
+          }
+        }
+      }
+      tr[i].style.display = visible ? "" : "none";
+    }
+  }
+
+  function filterTableByDate(tableId, fromId, toId, dateColIdx) {
+    const fromStr = document.getElementById(fromId).value;
+    const toStr = document.getElementById(toId).value;
+    const fromDate = fromStr ? new Date(fromStr) : null;
+    const toDate = toStr ? new Date(toStr) : null;
+
+    const table = document.getElementById(tableId);
+    const tr = table.getElementsByTagName("tr");
+
+    for (let i = 1; i < tr.length; i++) {
+      const tds = tr[i].getElementsByTagName("td");
+      if (tds.length > dateColIdx) {
+        const rowDateStr = tds[dateColIdx].innerText;
+        const rowDate = new Date(rowDateStr);
+        let show = true;
+
+        if (fromDate && rowDate < fromDate) show = false;
+        if (toDate && rowDate > toDate) show = false;
+
+        // Note: this overrides the text search filter if combined, but provides basic date filtering.
+        tr[i].style.display = show ? "" : "none";
+      }
+    }
+  }
+
+  function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        // Skip hidden rows
+        if(rows[i].style.display === "none") continue;
+
+        let row = [], cols = rows[i].querySelectorAll("td, th");
+
+        // Skip the last column (Actions)
+        for (let j = 0; j < cols.length - 1; j++) {
+            let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").replace(/(\s\s)/gm, " ");
+            data = data.replace(/"/g, '""');
+            row.push('"' + data + '"');
+        }
+        csv.push(row.join(","));
+    }
+
+    const csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+    const downloadLink = document.createElement("a");
+    downloadLink.download = filename;
+    downloadLink.href = window.URL.createObjectURL(csvFile);
+    downloadLink.style.display = "none";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+  }
+
+</script>

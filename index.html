@@ -2,328 +2,484 @@
 <html>
 <head>
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: white;
-}
-
-.box {
-  width: 100%;
-  min-height: 100vh;
-  background: white;
-  padding: 20px 0px 50px;
-}
-
-@media (min-width: 640px) {
-  body {
-    background: #eef2f7;
-    padding: 24px;
-    display: flex;
-    justify-content: center;
-  }
-  .box {
-    max-width: 640px;
-    min-height: unset;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    padding: 28px 28px 40px;
-  }
-}
-
-h2 {
-  text-align: center;
-  color: #0b5394;
-  margin: 0 0 24px 0;
-  font-size: 26px;
-  font-weight: 800;
-  padding: 0 10px;
-}
-
-.section-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0b5394;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 22px 0 10px;
-  padding: 0 10px 7px;
-  border-bottom: 2px solid #e0eaf5;
-}
-
-.row {
-  margin-bottom: 14px;
-  padding: 0 10px;
-}
-
-label {
-  font-weight: 700;
-  display: block;
-  margin-bottom: 7px;
-  font-size: 15px;
-  color: #222;
-}
-
-input:not([readonly]),
-textarea {
-  width: 100%;
-  padding: 16px 12px;
-  border: 2px solid #d0d8e4;
-  border-radius: 10px;
-  font-size: 17px;
-  outline: none;
-  background: #fff;
-  color: #111;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-input:not([readonly]):focus,
-textarea:focus {
-  border-color: #0b5394;
-  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
-}
-
-input[readonly] {
-  width: 100%;
-  padding: 13px 12px;
-  border: 1.5px solid #e0e6ef;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #f0f5fb;
-  color: #555;
-  outline: none;
-}
-
-textarea {
-  min-height: 100px;
-  resize: vertical;
-  line-height: 1.6;
-}
-
-.btn-wrap {
-  padding: 0 10px;
-}
-
-button {
-  width: 100%;
-  background: #0b5394;
-  color: white;
-  border: none;
-  padding: 18px;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: 800;
-  cursor: pointer;
-  margin-top: 12px;
-  -webkit-appearance: none;
-  transition: background 0.2s, transform 0.1s;
-}
-
-button:active {
-  transform: scale(0.97);
-  background: #073763;
-}
-
-button:disabled {
-  background: #7fa8cc;
-}
-
-.msg-box {
-  margin: 16px 10px 0;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-  padding: 14px;
-  border-radius: 12px;
-  display: none;
-}
-
-.msg-success {
-  color: #1a7a1a;
-  background: #e6f9e6;
-  border: 1.5px solid #b2e0b2;
-}
-
-.msg-error {
-  color: #b71c1c;
-  background: #fdecea;
-  border: 1.5px solid #f5c6c6;
-}
-
-  </style>
+  <meta charset="utf-8">
+  <title>Reconciliation App</title>
+  <?!= HtmlService.createHtmlOutputFromFile('CSS').getContent(); ?>
 </head>
-
 <body>
-<div class="box">
 
-  <h2>🚚 Transit Entry Form</h2>
-
-  <form id="myForm" autocomplete="off">
-
-    <div class="section-title">From Party</div>
-
-    <div class="row">
-      <label>Party Name / फ्रॉम पार्टी</label>
-      <input list="fromPartyList" id="fromParty" placeholder="Select or type party name..." required>
-      <datalist id="fromPartyList"></datalist>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay d-none">
+    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+      <span class="visually-hidden">Loading...</span>
     </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="fromPartyCode" readonly placeholder="Auto-filled">
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1055;">
+    <div id="liveToast" class="toast align-items-center border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMessage"></div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
     </div>
+  </div>
 
-    <div class="section-title">To Party</div>
-
-    <div class="row">
-      <label>Party Name / टू पार्टी</label>
-      <input list="toPartyList" id="toParty" placeholder="Select or type party name..." required>
-      <datalist id="toPartyList"></datalist>
+  <div class="d-flex" id="wrapper">
+    <!-- Sidebar -->
+    <div class="bg-dark text-white" id="sidebar-wrapper">
+      <div class="sidebar-heading text-center py-4 fs-4 fw-bold text-uppercase border-bottom border-secondary">
+        <i class="fas fa-boxes me-2"></i> Recon App
+      </div>
+      <div class="list-group list-group-flush my-3">
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold active" onclick="showView('dashboard-view')">
+          <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('dispatch-view')">
+          <i class="fas fa-truck-loading me-2"></i> Dispatch
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('grn-view')">
+          <i class="fas fa-clipboard-check me-2"></i> GRN Entry
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('invoice-view')">
+          <i class="fas fa-file-invoice-dollar me-2"></i> Invoice
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('container-view')">
+          <i class="fas fa-box-open me-2"></i> Containers
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('reports-view')">
+          <i class="fas fa-chart-bar me-2"></i> Reports
+        </a>
+        <a href="#" class="list-group-item list-group-item-action bg-transparent second-text fw-bold" onclick="showView('master-view')">
+          <i class="fas fa-database me-2"></i> Master Data
+        </a>
+      </div>
     </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="toPartyCode" readonly placeholder="Auto-filled">
+    <!-- /#sidebar-wrapper -->
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
+      <nav class="navbar navbar-expand-lg navbar-light bg-white py-3 px-4 border-bottom">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-align-left primary-text fs-4 me-3" id="menu-toggle" style="cursor:pointer;"></i>
+          <h2 class="fs-4 m-0" id="pageTitle">Dashboard</h2>
+        </div>
+      </nav>
+
+      <div class="container-fluid px-4 py-4" id="main-content">
+
+        <!-- DASHBOARD VIEW -->
+        <div id="dashboard-view" class="view-section">
+          <div class="row g-3 mb-4">
+            <div class="col-md-3">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-dispatch-qty">0</h3>
+                  <p class="fs-6 text-muted mb-0">Total Dispatch Qty</p>
+                </div>
+                <i class="fas fa-truck fs-1 text-primary p-3"></i>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-received-qty">0</h3>
+                  <p class="fs-6 text-muted mb-0">Total Received Qty</p>
+                </div>
+                <i class="fas fa-check-circle fs-1 text-success p-3"></i>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-invoice-qty">0</h3>
+                  <p class="fs-6 text-muted mb-0">Total Invoice Qty</p>
+                </div>
+                <i class="fas fa-file-invoice fs-1 text-info p-3"></i>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-pending-qty">0</h3>
+                  <p class="fs-6 text-muted mb-0">Pending Qty</p>
+                </div>
+                <i class="fas fa-hourglass-half fs-1 text-warning p-3"></i>
+              </div>
+            </div>
+          </div>
+          <div class="row g-3 mb-4">
+             <div class="col-md-6">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-partial-containers">0</h3>
+                  <p class="fs-6 text-muted mb-0">Partial Containers</p>
+                </div>
+                <i class="fas fa-box-open fs-1 text-warning p-3"></i>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="p-3 bg-white shadow-sm d-flex justify-content-around align-items-center rounded">
+                <div>
+                  <h3 class="fs-2" id="dash-missing-containers">0</h3>
+                  <p class="fs-6 text-muted mb-0">Missing Containers</p>
+                </div>
+                <i class="fas fa-times-circle fs-1 text-danger p-3"></i>
+              </div>
+            </div>
+          </div>
+
+          <h4 class="mb-3">Reconciliation & Alerts</h4>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover" id="reconTable">
+                  <thead>
+                    <tr>
+                      <th>Vendor</th>
+                      <th>Item</th>
+                      <th>Dispatch Qty</th>
+                      <th>Received Qty</th>
+                      <th>Invoice Qty</th>
+                      <th>Difference (Inv - Rec)</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /DASHBOARD VIEW -->
+
+        <!-- DISPATCH VIEW -->
+        <div id="dispatch-view" class="view-section d-none">
+          <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Add Dispatch Entry</div>
+            <div class="card-body">
+              <form id="formDispatch" onsubmit="handleDispatchSubmit(event)">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Dispatch Date</label>
+                    <input type="date" class="form-control" id="dispDate" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Vendor Name</label>
+                    <select class="form-select vendor-dropdown" id="dispVendor" required>
+                      <option value="">Select Vendor...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Item Name</label>
+                    <select class="form-select item-dropdown" id="dispItem" required>
+                      <option value="">Select Item...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Container Number</label>
+                    <input type="text" class="form-control text-uppercase" id="dispContainer" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Vehicle Number</label>
+                    <input type="text" class="form-control text-uppercase" id="dispVehicle" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Dispatch Quantity (MT)</label>
+                    <input type="number" step="0.01" class="form-control" id="dispQty" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Remarks</label>
+                    <input type="text" class="form-control" id="dispRemarks">
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Dispatch</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <!-- /DISPATCH VIEW -->
+
+        <!-- GRN VIEW -->
+        <div id="grn-view" class="view-section d-none">
+          <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Create GRN</div>
+            <div class="card-body">
+              <form id="formGRN" onsubmit="handleGRNSubmit(event)">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Receipt Date</label>
+                    <input type="date" class="form-control" id="grnDate" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Container Number</label>
+                    <input type="text" class="form-control text-uppercase" id="grnContainer" list="pendingContainersList" required autocomplete="off" onblur="handleGRNContainerSelect()">
+                    <datalist id="pendingContainersList"></datalist>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Vendor Name</label>
+                    <input type="text" class="form-control" id="grnVendor" readonly required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Item Name</label>
+                    <input type="text" class="form-control" id="grnItem" readonly required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Dispatched Qty (MT)</label>
+                    <input type="number" step="0.01" class="form-control" id="grnDispQty" readonly>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Received Quantity (MT)</label>
+                    <input type="number" step="0.01" class="form-control" id="grnQty" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Remarks</label>
+                    <input type="text" class="form-control" id="grnRemarks">
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save GRN</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <!-- /GRN VIEW -->
+
+        <!-- INVOICE VIEW -->
+        <div id="invoice-view" class="view-section d-none">
+          <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Add Invoice</div>
+            <div class="card-body">
+              <form id="formInvoice" onsubmit="handleInvoiceSubmit(event)">
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label">Invoice Number</label>
+                    <input type="text" class="form-control text-uppercase" id="invNumber" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Invoice Date</label>
+                    <input type="date" class="form-control" id="invDate" required>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Vendor Name</label>
+                    <select class="form-select vendor-dropdown" id="invVendor" required>
+                      <option value="">Select Vendor...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label">Item Name</label>
+                    <select class="form-select item-dropdown" id="invItem" required>
+                      <option value="">Select Item...</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Invoice Quantity (MT)</label>
+                    <input type="number" step="0.01" class="form-control" id="invQty" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Invoice Amount</label>
+                    <input type="number" step="0.01" class="form-control" id="invAmt" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Remarks</label>
+                    <input type="text" class="form-control" id="invRemarks">
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Save Invoice</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        <!-- /INVOICE VIEW -->
+
+        <!-- CONTAINER VIEW -->
+        <div id="container-view" class="view-section d-none">
+           <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold">Container Tracking</div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover" id="containerTable">
+                  <thead>
+                    <tr>
+                      <th>Container Number</th>
+                      <th>Dispatch Qty</th>
+                      <th>Received Qty</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /CONTAINER VIEW -->
+
+        <!-- REPORTS VIEW -->
+        <div id="reports-view" class="view-section d-none">
+           <ul class="nav nav-tabs mb-3" id="reportsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="rep-disp-tab" data-bs-toggle="tab" data-bs-target="#rep-disp" type="button" role="tab">Dispatch Report</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="rep-grn-tab" data-bs-toggle="tab" data-bs-target="#rep-grn" type="button" role="tab">GRN Report</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="rep-inv-tab" data-bs-toggle="tab" data-bs-target="#rep-inv" type="button" role="tab">Invoice Report</button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="reportsTabContent">
+            <!-- Dispatch Report -->
+            <div class="tab-pane fade show active" id="rep-disp" role="tabpanel">
+               <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
+                  <input type="text" class="form-control" style="max-width:200px" id="searchDisp" placeholder="Search..." onkeyup="filterTable('searchDisp', 'tbl-rep-disp')">
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">From:</label>
+                    <input type="date" class="form-control" id="dispDateFrom" onchange="filterTableByDate('tbl-rep-disp', 'dispDateFrom', 'dispDateTo', 1)">
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">To:</label>
+                    <input type="date" class="form-control" id="dispDateTo" onchange="filterTableByDate('tbl-rep-disp', 'dispDateFrom', 'dispDateTo', 1)">
+                  </div>
+                  <button class="btn btn-success ms-auto" onclick="exportTableToCSV('tbl-rep-disp', 'Dispatch_Report.csv')"><i class="fas fa-file-csv me-2"></i>Export</button>
+               </div>
+               <div class="table-responsive">
+                 <table class="table table-bordered table-hover" id="tbl-rep-disp">
+                   <thead class="table-light">
+                     <tr>
+                       <th>Dispatch ID</th><th>Date</th><th>Vendor</th><th>Item</th><th>Container</th><th>Qty</th><th>Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody></tbody>
+                 </table>
+               </div>
+            </div>
+            <!-- GRN Report -->
+            <div class="tab-pane fade" id="rep-grn" role="tabpanel">
+               <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
+                  <input type="text" class="form-control" style="max-width:200px" id="searchGrn" placeholder="Search..." onkeyup="filterTable('searchGrn', 'tbl-rep-grn')">
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">From:</label>
+                    <input type="date" class="form-control" id="grnDateFrom" onchange="filterTableByDate('tbl-rep-grn', 'grnDateFrom', 'grnDateTo', 1)">
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">To:</label>
+                    <input type="date" class="form-control" id="grnDateTo" onchange="filterTableByDate('tbl-rep-grn', 'grnDateFrom', 'grnDateTo', 1)">
+                  </div>
+                  <button class="btn btn-success ms-auto" onclick="exportTableToCSV('tbl-rep-grn', 'GRN_Report.csv')"><i class="fas fa-file-csv me-2"></i>Export</button>
+               </div>
+               <div class="table-responsive">
+                 <table class="table table-bordered table-hover" id="tbl-rep-grn">
+                   <thead class="table-light">
+                     <tr>
+                       <th>GRN No</th><th>Date</th><th>Container</th><th>Vendor</th><th>Item</th><th>Received Qty</th><th>Status</th><th>Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody></tbody>
+                 </table>
+               </div>
+            </div>
+            <!-- Invoice Report -->
+            <div class="tab-pane fade" id="rep-inv" role="tabpanel">
+               <div class="mb-3 d-flex align-items-center gap-3 flex-wrap">
+                  <input type="text" class="form-control" style="max-width:200px" id="searchInv" placeholder="Search..." onkeyup="filterTable('searchInv', 'tbl-rep-inv')">
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">From:</label>
+                    <input type="date" class="form-control" id="invDateFrom" onchange="filterTableByDate('tbl-rep-inv', 'invDateFrom', 'invDateTo', 1)">
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <label class="form-label mb-0">To:</label>
+                    <input type="date" class="form-control" id="invDateTo" onchange="filterTableByDate('tbl-rep-inv', 'invDateFrom', 'invDateTo', 1)">
+                  </div>
+                  <button class="btn btn-success ms-auto" onclick="exportTableToCSV('tbl-rep-inv', 'Invoice_Report.csv')"><i class="fas fa-file-csv me-2"></i>Export</button>
+               </div>
+               <div class="table-responsive">
+                 <table class="table table-bordered table-hover" id="tbl-rep-inv">
+                   <thead class="table-light">
+                     <tr>
+                       <th>Invoice No</th><th>Date</th><th>Vendor</th><th>Item</th><th>Qty</th><th>Amount</th><th>Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody></tbody>
+                 </table>
+               </div>
+            </div>
+          </div>
+        </div>
+        <!-- /REPORTS VIEW -->
+
+        <!-- MASTER DATA VIEW -->
+        <div id="master-view" class="view-section d-none">
+          <div class="row g-4">
+            <div class="col-md-6">
+              <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                  Vendors
+                  <button class="btn btn-sm btn-primary" onclick="showMasterModal('Vendor')">Add Vendor</button>
+                </div>
+                <div class="card-body">
+                  <table class="table table-sm" id="vendorTable">
+                    <thead><tr><th>Vendor Name</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                  Items
+                  <button class="btn btn-sm btn-primary" onclick="showMasterModal('Item')">Add Item</button>
+                </div>
+                <div class="card-body">
+                  <table class="table table-sm" id="itemTable">
+                    <thead><tr><th>Item Name</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /MASTER DATA VIEW -->
+
+      </div>
     </div>
+    <!-- /#page-content-wrapper -->
+  </div>
 
-    <div class="section-title">Brand</div>
-
-    <div class="row">
-      <label>Brand Name / ब्रांड</label>
-      <input list="brandList" id="brandName" placeholder="Select or type brand..." required>
-      <datalist id="brandList"></datalist>
+  <!-- Master Data Modal -->
+  <div class="modal fade" id="masterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="masterModalTitle">Add Master Data</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formMaster" onsubmit="handleMasterSubmit(event)">
+            <input type="hidden" id="masterType">
+            <div class="mb-3">
+              <label class="form-label" id="masterNameLabel">Name</label>
+              <input type="text" class="form-control" id="masterName" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Save</button>
+          </form>
+        </div>
+      </div>
     </div>
-    <div class="row">
-      <label>Brand Code</label>
-      <input type="text" id="brandCode" readonly placeholder="Auto-filled">
-    </div>
+  </div>
 
-    <div class="section-title">Details</div>
-
-    <div class="row">
-      <label>Quantity / मात्रा</label>
-      <input type="number" id="qty" placeholder="Enter quantity" inputmode="numeric" required>
-    </div>
-    <div class="row">
-      <label>Vehicle No / गाड़ी नंबर</label>
-      <input type="text" id="vehicleNo" placeholder="E.G. DL01AB1234" style="text-transform:uppercase">
-    </div>
-    <div class="row">
-      <label>Remarks / टिप्पणी</label>
-      <textarea id="remarks" placeholder="Optional notes..."></textarea>
-    </div>
-
-    <div class="btn-wrap">
-      <button type="submit" id="submitBtn">Submit / जमा करें</button>
-    </div>
-
-  </form>
-
-  <div class="msg-box" id="msg"></div>
-
-</div>
-
-<script>
-
-let partyData = [];
-let brandData = [];
-
-google.script.run.withSuccessHandler(function(data) {
-  partyData = data.parties;
-  brandData = data.brands;
-
-  const fromList  = document.getElementById("fromPartyList");
-  const toList    = document.getElementById("toPartyList");
-  const brandList = document.getElementById("brandList");
-
-  partyData.forEach(p => {
-    let o1 = document.createElement("option"); o1.value = p.name; fromList.appendChild(o1);
-    let o2 = document.createElement("option"); o2.value = p.name; toList.appendChild(o2);
-  });
-  brandData.forEach(b => {
-    let o = document.createElement("option"); o.value = b.name; brandList.appendChild(o);
-  });
-
-}).getMasterData();
-
-
-function matchParty(val) {
-  let f = partyData.find(p => p.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
-}
-
-function matchBrand(val) {
-  let f = brandData.find(b => b.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
-}
-
-document.getElementById("fromParty").addEventListener("input", function() {
-  document.getElementById("fromPartyCode").value = matchParty(this.value);
-});
-
-document.getElementById("toParty").addEventListener("input", function() {
-  document.getElementById("toPartyCode").value = matchParty(this.value);
-});
-
-document.getElementById("brandName").addEventListener("input", function() {
-  document.getElementById("brandCode").value = matchBrand(this.value);
-});
-
-document.getElementById("vehicleNo").addEventListener("input", function() {
-  let pos = this.selectionStart;
-  this.value = this.value.toUpperCase();
-  this.setSelectionRange(pos, pos);
-});
-
-document.getElementById("myForm").addEventListener("submit", function(e) {
-  e.preventDefault();
-
-  const btn    = document.getElementById("submitBtn");
-  const msgDiv = document.getElementById("msg");
-
-  btn.disabled = true;
-  btn.textContent = "Submitting...";
-  msgDiv.style.display = "none";
-
-  let obj = {
-    fromParty    : document.getElementById("fromParty").value,
-    fromPartyCode: document.getElementById("fromPartyCode").value,
-    toParty      : document.getElementById("toParty").value,
-    toPartyCode  : document.getElementById("toPartyCode").value,
-    qty          : document.getElementById("qty").value,
-    brandName    : document.getElementById("brandName").value,
-    brandCode    : document.getElementById("brandCode").value,
-    vehicleNo    : document.getElementById("vehicleNo").value,
-    remarks      : document.getElementById("remarks").value
-  };
-
-  google.script.run
-    .withSuccessHandler(function(res) {
-      const ok = res === "Success";
-      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
-      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
-      msgDiv.style.display = "block";
-      if (ok) {
-        document.getElementById("myForm").reset();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-      btn.disabled = false;
-      btn.textContent = "Submit / जमा करें";
-    })
-    .saveData(obj);
-});
-
-</script>
+  <?!= HtmlService.createHtmlOutputFromFile('JS').getContent(); ?>
 </body>
 </html>
