@@ -487,254 +487,487 @@ App.renderTransactionUI = function(docType) {
 
     this.loadMasterData(sheetMap[docType]);
 };
-// Implementing the Missing UI Transaction Modals (Simplified Stubs for UI Generation)
+// --- PURCHASE ORDERS ---
 
-App.openCreateTransactionModal = function(docType) {
-    this.currentDocType = docType;
-    let html = `
-    <div class="modal fade" id="transactionModal" tabindex="-1">
-      <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Create ${docType}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-             <div class="row mb-3">
-                 <div class="col-md-6">
-                     <label>Party/Location Selection</label>
-                     <input type="text" id="trans-party" class="form-control" placeholder="Select Party or Loc">
-                 </div>
-                 <div class="col-md-6">
-                     <label>Date</label>
-                     <input type="date" id="trans-date" class="form-control">
-                 </div>
-             </div>
-             <hr>
-             <h6>Line Items</h6>
-             <table class="table" id="trans-lines">
-                <thead>
-                    <tr>
-                        <th>Item Code</th>
-                        <th>Qty</th>
-                        <th>Location (if needed)</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="trans-lines-body">
-                    <tr>
-                        <td><input type="text" class="form-control line-item"></td>
-                        <td><input type="number" class="form-control line-qty"></td>
-                        <td><input type="text" class="form-control line-loc"></td>
-                        <td><button class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button></td>
-                    </tr>
-                </tbody>
-             </table>
-             <button class="btn btn-sm btn-secondary" onclick="App.addLineItem()">Add Line</button>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" onclick="App.submitTransaction()">Submit Approval</button>
-          </div>
+App.renderPOCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Purchase Order</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Purchase Orders')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Date</label>
+                <input type="date" id="po-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-4">
+                <label>Supplier Code</label>
+                <input type="text" id="po-supplier" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label>Remarks</label>
+                <input type="text" id="po-remarks" class="form-control">
+            </div>
         </div>
-      </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addPOLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="po-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Location Code</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="po-lines-body">
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end fw-bold">Total Amount</td>
+                    <td id="po-total" class="fw-bold">0.00</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitPO()">Submit For Approval</button>
+        </div>
     </div>`;
-
-    // Remove if exists
-    let existing = document.getElementById('transactionModal');
-    if (existing) {
-        let modalInstance = bootstrap.Modal.getInstance(existing);
-        if(modalInstance) modalInstance.dispose();
-        existing.remove();
-    }
-
-    document.body.insertAdjacentHTML('beforeend', html);
-    let myModal = new bootstrap.Modal(document.getElementById('transactionModal'));
-    myModal.show();
+    this.addPOLine();
 };
 
-App.addLineItem = function() {
+App.addPOLine = function() {
     let html = `
     <tr>
-        <td><input type="text" class="form-control line-item"></td>
-        <td><input type="number" class="form-control line-qty"></td>
-        <td><input type="text" class="form-control line-loc"></td>
-        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fa fa-trash"></i></button></td>
+        <td><input type="text" class="form-control po-item" required></td>
+        <td><input type="text" class="form-control po-loc" required></td>
+        <td><input type="number" class="form-control po-qty" value="0" min="1" oninput="App.calcPOLine(this)"></td>
+        <td><input type="number" class="form-control po-rate" value="0" min="0" step="0.01" oninput="App.calcPOLine(this)"></td>
+        <td><input type="text" class="form-control po-amount" readonly value="0.00"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); App.calcPOTotal();"><i class="fa fa-trash"></i></button></td>
     </tr>`;
-    document.getElementById('trans-lines-body').insertAdjacentHTML('beforeend', html);
+    document.getElementById('po-lines-body').insertAdjacentHTML('beforeend', html);
 };
 
-App.submitTransaction = function() {
-    // In a fully integrated env, this would gather data and call the respective google.script.run endpoint
-    // such as processLedgerImpactForApproval or processDispatch.
-    // This completes the architectural requirement for the UI hookup without building 10k lines of granular HTML.
-
-    this.showLoader();
-    setTimeout(() => {
-        this.hideLoader();
-        let modalEl = document.getElementById('transactionModal');
-        let modalInstance = bootstrap.Modal.getInstance(modalEl);
-        modalInstance.hide();
-        this.showToast('Transaction submitted and approved successfully!', 'success');
-        this.loadMasterData(this.currentModule === 'Purchase Orders' ? 'PURCHASE_ORDERS' :
-                           (this.currentModule === 'Sales Orders' ? 'SALES_ORDERS' :
-                           (this.currentModule === 'Dispatch' ? 'DISPATCH' : 'INTERNAL_TRANSFERS')));
-    }, 1000);
+App.calcPOLine = function(el) {
+    let tr = el.closest('tr');
+    let qty = parseFloat(tr.querySelector('.po-qty').value) || 0;
+    let rate = parseFloat(tr.querySelector('.po-rate').value) || 0;
+    tr.querySelector('.po-amount').value = (qty * rate).toFixed(2);
+    this.calcPOTotal();
 };
 
-// Admin Utilities JS Hooks
-App.renderAdminUtilities = function() {
-    this.currentModule = 'Admin Utilities';
-    const container = document.getElementById('content-area');
-
-    let html = `
-    <h2>Admin Utilities & Recovery Tools</h2>
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-danger">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-danger">Rebuild Inventory View</h5>
-                    <p class="card-text text-muted">Recalculates the entire Materialized INVENTORY view exclusively from STOCK_LEDGER history.</p>
-                    <button class="btn btn-danger w-100" onclick="App.triggerAdminAction('triggerInventoryRebuild')">
-                        <i class="fa fa-sync"></i> Rebuild Inventory
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-warning">Recalculate Running Balance</h5>
-                    <p class="card-text text-muted">Fixes any anomalies in the Running Balance column across the entire STOCK_LEDGER.</p>
-                    <button class="btn btn-warning w-100" onclick="App.triggerAdminAction('recalculateRunningBalance')">
-                        <i class="fa fa-calculator"></i> Recalculate Balance
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>`;
-
-    container.innerHTML = html;
-};
-
-App.triggerAdminAction = function(actionFn) {
-    this.confirmAction('Execute Admin Utility', 'Are you sure? This action is resource-intensive.', () => {
-        this.showLoader();
-        google.script.run.withSuccessHandler(res => {
-            this.hideLoader();
-            if(res.success) {
-                this.showToast(res.message, 'success');
-            } else {
-                this.showToast(res.error, 'error');
-            }
-        })[actionFn]();
+App.calcPOTotal = function() {
+    let total = 0;
+    document.querySelectorAll('.po-amount').forEach(el => {
+        total += parseFloat(el.value) || 0;
     });
-};
-// Master Form implementations
-App.openCreateModal = function(sheetName) {
-    this.currentModuleSheet = sheetName;
-    const title = sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase();
-
-    // Auto-generate a generic form based on common master fields
-    let fields = '';
-    if (sheetName === 'USERS') {
-        fields = `
-            <div class="mb-2"><label>Name</label><input type="text" id="m-name" class="form-control" required></div>
-            <div class="mb-2"><label>Email</label><input type="email" id="m-email" class="form-control" required></div>
-            <div class="mb-2"><label>Role</label>
-                <select id="m-role" class="form-control"><option>User</option><option>Manager</option><option>Admin</option></select>
-            </div>
-            <div class="mb-2"><label>Status</label>
-                <select id="m-status" class="form-control"><option>Active</option><option>Inactive</option></select>
-            </div>`;
-    } else if (sheetName === 'ITEMS') {
-        fields = `
-            <div class="mb-2"><label>Item Code</label><input type="text" id="m-code" class="form-control" required></div>
-            <div class="mb-2"><label>Item Name</label><input type="text" id="m-name" class="form-control" required></div>
-            <div class="mb-2"><label>Category</label><input type="text" id="m-cat" class="form-control"></div>
-            <div class="mb-2"><label>UOM</label><input type="text" id="m-uom" class="form-control"></div>`;
-    } else if (sheetName === 'PARTIES') {
-        fields = `
-            <div class="mb-2"><label>Party Name</label><input type="text" id="m-name" class="form-control" required></div>
-            <div class="mb-2"><label>Type</label>
-                <select id="m-type" class="form-control"><option>Supplier</option><option>Customer</option><option>Both</option></select>
-            </div>`;
-    } else if (sheetName === 'LOCATIONS') {
-        fields = `
-            <div class="mb-2"><label>Location Name</label><input type="text" id="m-name" class="form-control" required></div>
-            <div class="mb-2"><label>Type</label>
-                <select id="m-type" class="form-control"><option>Warehouse</option><option>Supplier Yard</option><option>Transit</option></select>
-            </div>`;
-    }
-
-    let html = `
-    <div class="modal fade" id="masterModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Create ${title}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-             <form id="masterForm">${fields}</form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" onclick="App.submitMasterForm()">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-    let existing = document.getElementById('masterModal');
-    if (existing) {
-        let modalInstance = bootstrap.Modal.getInstance(existing);
-        if(modalInstance) modalInstance.dispose();
-        existing.remove();
-    }
-
-    document.body.insertAdjacentHTML('beforeend', html);
-    let myModal = new bootstrap.Modal(document.getElementById('masterModal'));
-    myModal.show();
+    document.getElementById('po-total').innerText = total.toFixed(2);
 };
 
-App.submitMasterForm = function() {
+App.submitPO = function() {
+    let header = {
+        Date: document.getElementById('po-date').value,
+        Party_Code: document.getElementById('po-supplier').value,
+        Remarks: document.getElementById('po-remarks').value
+    };
+
+    if(!header.Party_Code) return this.showToast('Supplier is required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#po-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.po-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.po-item').value,
+                Loc_Code: tr.querySelector('.po-loc').value,
+                Qty: qty,
+                Rate: parseFloat(tr.querySelector('.po-rate').value) || 0,
+                Amount: parseFloat(tr.querySelector('.po-amount').value) || 0
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
     this.showLoader();
-    let recordObj = {};
-    const sheetName = this.currentModuleSheet;
-
-    if (sheetName === 'USERS') {
-        recordObj = { Name: $('#m-name').val(), Email: $('#m-email').val(), Role: $('#m-role').val(), Status: $('#m-status').val() };
-    } else if (sheetName === 'ITEMS') {
-        recordObj = { ItemCode: $('#m-code').val(), ItemName: $('#m-name').val(), Category: $('#m-cat').val(), UOM: $('#m-uom').val(), ActiveStatus: 'Active' };
-    } else if (sheetName === 'PARTIES') {
-        recordObj = { PartyName: $('#m-name').val(), PartyType: $('#m-type').val(), ActiveStatus: 'Active' };
-    } else if (sheetName === 'LOCATIONS') {
-        recordObj = { LocationName: $('#m-name').val(), LocationType: $('#m-type').val(), ActiveStatus: 'Active' };
-    }
-
-    let idCol = '';
-    if(sheetName === 'USERS') idCol = 'UserID';
-    else if(sheetName === 'ITEMS') idCol = 'ItemID';
-    else if(sheetName === 'PARTIES') idCol = 'PartyID';
-    else if(sheetName === 'LOCATIONS') idCol = 'LocationID';
-
     google.script.run.withSuccessHandler(res => {
         this.hideLoader();
-        if(res.success) {
-            bootstrap.Modal.getInstance(document.getElementById('masterModal')).hide();
+        if(res.success){
             this.showToast(res.message, 'success');
-            this.loadMasterData(sheetName);
+            this.renderTransactionUI('Purchase Orders');
         } else {
             this.showToast(res.error, 'error');
         }
-    }).saveMasterData(sheetName, recordObj, idCol);
+    }).saveTransactionDoc('Purchase Orders', header, lines);
 };
 
-App.openEditModal = function(sheetName, recordId) {
-    this.showToast("Edit logic triggered for " + recordId + ". Prepopulates the Create form.", "info");
+// --- SALES ORDERS ---
+
+App.renderSOCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Sales Order</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Sales Orders')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Date</label>
+                <input type="date" id="so-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-4">
+                <label>Customer Code</label>
+                <input type="text" id="so-customer" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label>Remarks</label>
+                <input type="text" id="so-remarks" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addSOLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="so-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Location Code (Reserve From)</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="so-lines-body">
+            </tbody>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitSO()">Submit For Approval</button>
+        </div>
+    </div>`;
+    this.addSOLine();
 };
 
+App.addSOLine = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control so-item" required></td>
+        <td><input type="text" class="form-control so-loc" required></td>
+        <td><input type="number" class="form-control so-qty" value="0" min="1" oninput="App.calcSOLine(this)"></td>
+        <td><input type="number" class="form-control so-rate" value="0" min="0" step="0.01" oninput="App.calcSOLine(this)"></td>
+        <td><input type="text" class="form-control so-amount" readonly value="0.00"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('so-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.calcSOLine = function(el) {
+    let tr = el.closest('tr');
+    let qty = parseFloat(tr.querySelector('.so-qty').value) || 0;
+    let rate = parseFloat(tr.querySelector('.so-rate').value) || 0;
+    tr.querySelector('.so-amount').value = (qty * rate).toFixed(2);
+};
+
+App.submitSO = function() {
+    let header = {
+        Date: document.getElementById('so-date').value,
+        Party_Code: document.getElementById('so-customer').value,
+        Remarks: document.getElementById('so-remarks').value
+    };
+
+    if(!header.Party_Code) return this.showToast('Customer is required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#so-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.so-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.so-item').value,
+                Loc_Code: tr.querySelector('.so-loc').value,
+                Qty: qty,
+                Rate: parseFloat(tr.querySelector('.so-rate').value) || 0,
+                Amount: parseFloat(tr.querySelector('.so-amount').value) || 0
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Sales Orders');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveTransactionDoc('Sales Orders', header, lines);
+};
+
+// --- DISPATCH ---
+
+App.renderDispatchCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Dispatch</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Dispatch')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Load Pending Sales Order</h5>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label>SO Number</label>
+                <input type="text" id="disp-so" class="form-control" placeholder="SO-26-27-00001">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" onclick="App.loadSOForDispatch()">Load SO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dispatch-form-area" class="d-none">
+        <div class="card p-4 shadow-sm mb-4">
+            <h5>Dispatch Header</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label>Date</label>
+                    <input type="date" id="disp-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <div class="col-md-3">
+                    <label>Customer</label>
+                    <input type="text" id="disp-cust" class="form-control" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label>Vehicle No</label>
+                    <input type="text" id="disp-vehicle" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Remarks</label>
+                    <input type="text" id="disp-remarks" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 shadow-sm">
+            <h5>Lines to Dispatch</h5>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Location Code</th>
+                        <th>Ordered Qty</th>
+                        <th>Pending Balance</th>
+                        <th>Dispatch Qty</th>
+                    </tr>
+                </thead>
+                <tbody id="disp-lines-body">
+                </tbody>
+            </table>
+            <div class="mt-3 text-end">
+                <button class="btn btn-primary" onclick="App.submitDispatch()">Submit Dispatch</button>
+            </div>
+        </div>
+    </div>`;
+};
+
+App.loadSOForDispatch = function() {
+    const soNo = document.getElementById('disp-so').value;
+    if(!soNo) return this.showToast('Enter an SO Number', 'warning');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success) {
+            document.getElementById('dispatch-form-area').classList.remove('d-none');
+            document.getElementById('disp-cust').value = res.header.Customer_Code;
+
+            let tbody = '';
+            res.lines.forEach((line, idx) => {
+                tbody += `
+                <tr>
+                    <td><input type="text" class="form-control d-item" readonly value="${line.Item_Code}"></td>
+                    <td><input type="text" class="form-control d-loc" readonly value="${line.Loc_Code || ''}"></td>
+                    <td><input type="text" class="form-control" readonly value="${line.Qty}"></td>
+                    <td><input type="text" class="form-control d-bal" readonly value="${line.Balance_Qty}"></td>
+                    <td><input type="number" class="form-control d-qty" value="0" min="0" max="${line.Balance_Qty}"></td>
+                </tr>`;
+            });
+            document.getElementById('disp-lines-body').innerHTML = tbody;
+            this.showToast('SO Loaded successfully', 'success');
+        } else {
+            this.showToast(res.error, 'error');
+            document.getElementById('dispatch-form-area').classList.add('d-none');
+        }
+    }).getPendingSOForDispatch(soNo);
+};
+
+App.submitDispatch = function() {
+    let header = {
+        Date: document.getElementById('disp-date').value,
+        SO_Number: document.getElementById('disp-so').value,
+        Customer_Code: document.getElementById('disp-cust').value,
+        Vehicle_No: document.getElementById('disp-vehicle').value,
+        Remarks: document.getElementById('disp-remarks').value
+    };
+
+    let lines = [];
+    document.querySelectorAll('#disp-lines-body tr').forEach(tr => {
+        let dispatchQty = parseFloat(tr.querySelector('.d-qty').value) || 0;
+        let balanceQty = parseFloat(tr.querySelector('.d-bal').value) || 0;
+
+        if (dispatchQty > balanceQty) {
+            return this.showToast('Cannot dispatch more than pending balance.', 'error');
+        }
+
+        if (dispatchQty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.d-item').value,
+                Loc_Code: tr.querySelector('.d-loc').value,
+                Dispatch_Qty: dispatchQty
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one line item with quantity > 0', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Dispatch');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).processDispatch(header, lines);
+};
+
+// --- INTERNAL TRANSFERS ---
+
+App.renderTransferCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Internal Transfer</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Internal Transfers')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label>Date</label>
+                <input type="date" id="tr-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-3">
+                <label>Source Loc Code</label>
+                <input type="text" id="tr-src" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label>Destination Loc Code</label>
+                <input type="text" id="tr-dst" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label>Remarks</label>
+                <input type="text" id="tr-remarks" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addTransferLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="tr-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Batch (Opt)</th>
+                    <th>Transfer Qty</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="tr-lines-body">
+            </tbody>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitTransfer()">Submit Transfer</button>
+        </div>
+    </div>`;
+    this.addTransferLine();
+};
+
+App.addTransferLine = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control tr-item" required></td>
+        <td><input type="text" class="form-control tr-batch"></td>
+        <td><input type="number" class="form-control tr-qty" value="0" min="1"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('tr-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.submitTransfer = function() {
+    let header = {
+        Date: document.getElementById('tr-date').value,
+        From_Loc: document.getElementById('tr-src').value,
+        To_Loc: document.getElementById('tr-dst').value,
+        Remarks: document.getElementById('tr-remarks').value
+    };
+
+    if(!header.From_Loc || !header.To_Loc) return this.showToast('Source and Destination are required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#tr-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.tr-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.tr-item').value,
+                Batch_No: tr.querySelector('.tr-batch').value,
+                Qty: qty
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Internal Transfers');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).processInternalTransfer(header, lines);
+};
+
+// --- TRANSACTION ENTRY ROUTER ---
+App.openCreateTransaction = function(docType) {
+    if (docType === 'Purchase Orders') this.renderPOCreate();
+    else if (docType === 'Sales Orders') this.renderSOCreate();
+    else if (docType === 'Dispatch') this.renderDispatchCreate();
+    else if (docType === 'Internal Transfers') this.renderTransferCreate();
+};
+        existing.remove();
 App.openCreateTransactionModal = function(docType) {
     this.currentDocType = docType;
     let html = `
