@@ -82,11 +82,14 @@ function initializeDatabase() {
     // SETTINGS Setup
     const settingsSheet = ss.getSheetByName('SETTINGS');
     if (settingsSheet.getLastRow() <= 1) {
-       settingsSheet.getRange(2, 1, 4, 2).setValues([
+       settingsSheet.getRange(2, 1, 7, 2).setValues([
          ['COMPANY_NAME', 'My Enterprise'],
          ['FINANCIAL_YEAR', '26-27'],
          ['FY_START_DATE', '2026-04-01'],
-         ['DEFAULT_PAGINATION', '50']
+         ['DEFAULT_PAGINATION', '50'],
+         ['APP_VERSION', '1.0.0'],
+         ['DB_VERSION', '1.0'],
+         ['RELEASE_DATE', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')]
        ]);
     }
 
@@ -1216,4 +1219,67 @@ function batchInsertRecords(sheetName, dataMatrix) {
     } finally {
         lock.releaseLock();
     }
+}
+
+// -----------------------------------------
+// Phase 5: Admin Utilities & Recovery Tools
+// -----------------------------------------
+
+/**
+ * Recalculates the Running Balance for all entries in the STOCK_LEDGER.
+ * Admin-only utility for recovery scenarios.
+ */
+function recalculateRunningBalance() {
+    validateUser(['Admin']);
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+
+    try {
+        const ss = SpreadsheetApp.openById(getDbId());
+        const ledgerSheet = ss.getSheetByName('STOCK_LEDGER');
+        const data = ledgerSheet.getDataRange().getValues();
+        const headers = data[0];
+
+        const itemIdx = headers.indexOf('Item_Code');
+        const locIdx = headers.indexOf('Loc_Code');
+        const inIdx = headers.indexOf('Qty_In');
+        const outIdx = headers.indexOf('Qty_Out');
+        const balIdx = headers.indexOf('Running_Balance');
+
+        // Ensure standard time-series sort for calculation if necessary (skipped here assuming natural insertion order is accurate)
+
+        let runMap = {};
+        let updateBatch = [];
+
+        for (let i = 1; i < data.length; i++) {
+            let item = data[i][itemIdx];
+            let loc = data[i][locIdx];
+            let qIn = parseFloat(data[i][inIdx]) || 0;
+            let qOut = parseFloat(data[i][outIdx]) || 0;
+
+            let key = item + "_" + loc;
+            if (runMap[key] === undefined) runMap[key] = 0;
+
+            runMap[key] = runMap[key] + qIn - qOut;
+            updateBatch.push([runMap[key]]);
+        }
+
+        if (updateBatch.length > 0) {
+            ledgerSheet.getRange(2, balIdx + 1, updateBatch.length, 1).setValues(updateBatch);
+        }
+
+        return { success: true, message: "Running Balances recalculated successfully." };
+    } catch (e) {
+        return { success: false, error: e.toString() };
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+/**
+ * Triggers full Inventory rebuild from the frontend.
+ */
+function triggerInventoryRebuild() {
+    validateUser(['Admin']);
+    return rebuildInventory();
 }

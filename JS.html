@@ -593,3 +593,53 @@ App.submitTransaction = function() {
 };
 
 </script>
+<script>
+// Admin Utilities JS Hooks
+App.renderAdminUtilities = function() {
+    this.currentModule = 'Admin Utilities';
+    const container = document.getElementById('content-area');
+
+    let html = `
+    <h2>Admin Utilities & Recovery Tools</h2>
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-danger">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-danger">Rebuild Inventory View</h5>
+                    <p class="card-text text-muted">Recalculates the entire Materialized INVENTORY view exclusively from STOCK_LEDGER history.</p>
+                    <button class="btn btn-danger w-100" onclick="App.triggerAdminAction('triggerInventoryRebuild')">
+                        <i class="fa fa-sync"></i> Rebuild Inventory
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-warning">Recalculate Running Balance</h5>
+                    <p class="card-text text-muted">Fixes any anomalies in the Running Balance column across the entire STOCK_LEDGER.</p>
+                    <button class="btn btn-warning w-100" onclick="App.triggerAdminAction('recalculateRunningBalance')">
+                        <i class="fa fa-calculator"></i> Recalculate Balance
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    container.innerHTML = html;
+};
+
+App.triggerAdminAction = function(actionFn) {
+    this.confirmAction('Execute Admin Utility', 'Are you sure? This action is resource-intensive.', () => {
+        this.showLoader();
+        google.script.run.withSuccessHandler(res => {
+            this.hideLoader();
+            if(res.success) {
+                this.showToast(res.message, 'success');
+            } else {
+                this.showToast(res.error, 'error');
+            }
+        })[actionFn]();
+    });
+};
+</script>
