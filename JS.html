@@ -198,8 +198,6 @@ const App = {
 };
 
 document.addEventListener("DOMContentLoaded", () => App.init());
-</script>
-<script>
 // Dashboard UI and Chart.js integration
 App.renderDashboard = function() {
     this.showLoader();
@@ -319,8 +317,6 @@ App.loadModule = function(moduleName) {
     }
 };
 
-</script>
-<script>
 // Generic Reporting UI Hook
 App.renderReportUI = function(reportType, reportTitle) {
     this.currentModule = reportType;
@@ -420,8 +416,6 @@ App.renderReportDataTable = function(reportType, data) {
     });
 };
 
-</script>
-<script>
 // Phase 3 Stubs for Transaction Modules in UI
 // Note: In a full production application, these would map to comprehensive forms
 // encompassing Header/Line architecture.
@@ -457,8 +451,6 @@ App.renderTransactionUI = function(docType) {
 
     this.loadMasterData(sheetMap[docType]);
 };
-</script>
-<script>
 // Phase 3 Implementations for UI Forms
 App.openCreateTransactionModal = function(docType) {
     this.showToast(`Full Create Form for ${docType} would open here with line item inputs.`, 'info');
@@ -495,8 +487,6 @@ App.renderTransactionUI = function(docType) {
 
     this.loadMasterData(sheetMap[docType]);
 };
-</script>
-<script>
 // Implementing the Missing UI Transaction Modals (Simplified Stubs for UI Generation)
 
 App.openCreateTransactionModal = function(docType) {
@@ -592,8 +582,6 @@ App.submitTransaction = function() {
     }, 1000);
 };
 
-</script>
-<script>
 // Admin Utilities JS Hooks
 App.renderAdminUtilities = function() {
     this.currentModule = 'Admin Utilities';
@@ -642,9 +630,6 @@ App.triggerAdminAction = function(actionFn) {
         })[actionFn]();
     });
 };
-</script>
-
-<script>
 // Master Form implementations
 App.openCreateModal = function(sheetName) {
     this.currentModuleSheet = sheetName;
@@ -749,9 +734,7 @@ App.submitMasterForm = function() {
 App.openEditModal = function(sheetName, recordId) {
     this.showToast("Edit logic triggered for " + recordId + ". Prepopulates the Create form.", "info");
 };
-</script>
 
-<script>
 App.openCreateTransactionModal = function(docType) {
     this.currentDocType = docType;
     let html = `
