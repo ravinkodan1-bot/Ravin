@@ -11,11 +11,10 @@ function getDbId() {
   const props = PropertiesService.getScriptProperties();
   const dbId = props.getProperty("MASTER_SPREADSHEET_ID");
   if (!dbId) {
-      throw new Error("MASTER_SPREADSHEET_ID is not configured in Script Properties.");
+      throw new Error("MASTER_SPREADSHEET_ID is not configured in Script Properties. Exception: Invalid argument: id");
   }
   return dbId;
 }
-
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
