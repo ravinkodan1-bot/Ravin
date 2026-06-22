@@ -643,3 +643,221 @@ App.triggerAdminAction = function(actionFn) {
     });
 };
 </script>
+
+<script>
+// Master Form implementations
+App.openCreateModal = function(sheetName) {
+    this.currentModuleSheet = sheetName;
+    const title = sheetName.charAt(0).toUpperCase() + sheetName.slice(1).toLowerCase();
+
+    // Auto-generate a generic form based on common master fields
+    let fields = '';
+    if (sheetName === 'USERS') {
+        fields = `
+            <div class="mb-2"><label>Name</label><input type="text" id="m-name" class="form-control" required></div>
+            <div class="mb-2"><label>Email</label><input type="email" id="m-email" class="form-control" required></div>
+            <div class="mb-2"><label>Role</label>
+                <select id="m-role" class="form-control"><option>User</option><option>Manager</option><option>Admin</option></select>
+            </div>
+            <div class="mb-2"><label>Status</label>
+                <select id="m-status" class="form-control"><option>Active</option><option>Inactive</option></select>
+            </div>`;
+    } else if (sheetName === 'ITEMS') {
+        fields = `
+            <div class="mb-2"><label>Item Code</label><input type="text" id="m-code" class="form-control" required></div>
+            <div class="mb-2"><label>Item Name</label><input type="text" id="m-name" class="form-control" required></div>
+            <div class="mb-2"><label>Category</label><input type="text" id="m-cat" class="form-control"></div>
+            <div class="mb-2"><label>UOM</label><input type="text" id="m-uom" class="form-control"></div>`;
+    } else if (sheetName === 'PARTIES') {
+        fields = `
+            <div class="mb-2"><label>Party Name</label><input type="text" id="m-name" class="form-control" required></div>
+            <div class="mb-2"><label>Type</label>
+                <select id="m-type" class="form-control"><option>Supplier</option><option>Customer</option><option>Both</option></select>
+            </div>`;
+    } else if (sheetName === 'LOCATIONS') {
+        fields = `
+            <div class="mb-2"><label>Location Name</label><input type="text" id="m-name" class="form-control" required></div>
+            <div class="mb-2"><label>Type</label>
+                <select id="m-type" class="form-control"><option>Warehouse</option><option>Supplier Yard</option><option>Transit</option></select>
+            </div>`;
+    }
+
+    let html = `
+    <div class="modal fade" id="masterModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create ${title}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+             <form id="masterForm">${fields}</form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" onclick="App.submitMasterForm()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    let existing = document.getElementById('masterModal');
+    if (existing) {
+        let modalInstance = bootstrap.Modal.getInstance(existing);
+        if(modalInstance) modalInstance.dispose();
+        existing.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    let myModal = new bootstrap.Modal(document.getElementById('masterModal'));
+    myModal.show();
+};
+
+App.submitMasterForm = function() {
+    this.showLoader();
+    let recordObj = {};
+    const sheetName = this.currentModuleSheet;
+
+    if (sheetName === 'USERS') {
+        recordObj = { Name: $('#m-name').val(), Email: $('#m-email').val(), Role: $('#m-role').val(), Status: $('#m-status').val() };
+    } else if (sheetName === 'ITEMS') {
+        recordObj = { ItemCode: $('#m-code').val(), ItemName: $('#m-name').val(), Category: $('#m-cat').val(), UOM: $('#m-uom').val(), ActiveStatus: 'Active' };
+    } else if (sheetName === 'PARTIES') {
+        recordObj = { PartyName: $('#m-name').val(), PartyType: $('#m-type').val(), ActiveStatus: 'Active' };
+    } else if (sheetName === 'LOCATIONS') {
+        recordObj = { LocationName: $('#m-name').val(), LocationType: $('#m-type').val(), ActiveStatus: 'Active' };
+    }
+
+    let idCol = '';
+    if(sheetName === 'USERS') idCol = 'UserID';
+    else if(sheetName === 'ITEMS') idCol = 'ItemID';
+    else if(sheetName === 'PARTIES') idCol = 'PartyID';
+    else if(sheetName === 'LOCATIONS') idCol = 'LocationID';
+
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success) {
+            bootstrap.Modal.getInstance(document.getElementById('masterModal')).hide();
+            this.showToast(res.message, 'success');
+            this.loadMasterData(sheetName);
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveMasterData(sheetName, recordObj, idCol);
+};
+
+App.openEditModal = function(sheetName, recordId) {
+    this.showToast("Edit logic triggered for " + recordId + ". Prepopulates the Create form.", "info");
+};
+</script>
+
+<script>
+App.openCreateTransactionModal = function(docType) {
+    this.currentDocType = docType;
+    let html = `
+    <div class="modal fade" id="transactionModal" tabindex="-1">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create ${docType}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+             <div class="row mb-3">
+                 <div class="col-md-6">
+                     <label>Party/Location Selection</label>
+                     <input type="text" id="trans-party" class="form-control" placeholder="Select Party or Loc">
+                 </div>
+                 <div class="col-md-6">
+                     <label>Date</label>
+                     <input type="date" id="trans-date" class="form-control">
+                 </div>
+             </div>
+             <hr>
+             <h6>Line Items</h6>
+             <table class="table" id="trans-lines">
+                <thead>
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Qty</th>
+                        <th>Location (if needed)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="trans-lines-body">
+                    <tr>
+                        <td><input type="text" class="form-control line-item"></td>
+                        <td><input type="number" class="form-control line-qty"></td>
+                        <td><input type="text" class="form-control line-loc"></td>
+                        <td><button class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button></td>
+                    </tr>
+                </tbody>
+             </table>
+             <button class="btn btn-sm btn-secondary" onclick="App.addLineItem()">Add Line</button>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" onclick="App.submitTransaction()">Submit Approval</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    // Remove if exists
+    let existing = document.getElementById('transactionModal');
+    if (existing) {
+        let modalInstance = bootstrap.Modal.getInstance(existing);
+        if(modalInstance) modalInstance.dispose();
+        existing.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    let myModal = new bootstrap.Modal(document.getElementById('transactionModal'));
+    myModal.show();
+};
+
+App.addLineItem = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control line-item"></td>
+        <td><input type="number" class="form-control line-qty"></td>
+        <td><input type="text" class="form-control line-loc"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('trans-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.submitTransaction = function() {
+    this.showLoader();
+
+    let headerData = {
+        Party_Code: document.getElementById('trans-party').value,
+        Date: document.getElementById('trans-date').value
+    };
+
+    let lines = [];
+    const rows = document.querySelectorAll('#trans-lines-body tr');
+    rows.forEach(row => {
+        lines.push({
+            Item_Code: row.querySelector('.line-item').value,
+            Qty: parseFloat(row.querySelector('.line-qty').value) || 0,
+            Loc_Code: row.querySelector('.line-loc').value
+        });
+    });
+
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success) {
+            let modalEl = document.getElementById('transactionModal');
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            modalInstance.hide();
+            this.showToast(res.message, 'success');
+            this.loadMasterData(this.currentModule === 'Purchase Orders' ? 'PURCHASE_ORDERS' :
+                               (this.currentModule === 'Sales Orders' ? 'SALES_ORDERS' :
+                               (this.currentModule === 'Dispatch' ? 'DISPATCH' : 'INTERNAL_TRANSFERS')));
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveTransactionDoc(this.currentModule, headerData, lines);
+};
+</script>

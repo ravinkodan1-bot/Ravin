@@ -117,7 +117,8 @@ function initializeDatabase() {
        userSheet.appendRow(['U-ALL-00001', 'Admin', email, 'Admin', 'Active', '', email, now, '', '', '', '', 'FALSE']);
     }
 
-    return { success: true, message: "Database Initialized." };
+    setupDailyTriggers();
+    return { success: true, message: "Database Initialized and Triggers active." };
 
   } catch (err) {
     return { success: false, error: err.toString() };
@@ -1282,4 +1283,177 @@ function recalculateRunningBalance() {
 function triggerInventoryRebuild() {
     validateUser(['Admin']);
     return rebuildInventory();
+}
+
+// -----------------------------------------
+// Phase 5: Automated Backup Architecture
+// -----------------------------------------
+
+/**
+ * Creates a physical duplicate of the entire Master Spreadsheet database
+ * every night to guarantee long-term data security against catastrophic loss.
+ */
+function dailyDatabaseBackup() {
+    // Only triggers via time-driven event or Admin manually.
+    try {
+        const dbId = getDbId();
+        const ss = SpreadsheetApp.openById(dbId);
+
+        const todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd_HHmmss');
+        const backupName = `IMS_Enterprise_Backup_${todayStr}`;
+
+        // This copies the entire file, all sheets, data, formulas, and formatting exactly as is.
+        // It saves the backup to the same Google Drive folder the original script/sheet runs within.
+        const backupFile = DriveApp.getFileById(dbId).makeCopy(backupName);
+
+        // Log the successful backup
+        createAuditLog('SYSTEM_BACKUP', 'Auto-Backup', backupFile.getId(), {}, { Name: backupName, URL: backupFile.getUrl() });
+
+        return { success: true, message: `Backup created: ${backupName}` };
+
+    } catch(e) {
+        console.error("Daily Backup Failed: " + e.toString());
+        return { success: false, error: e.toString() };
+    }
+}
+
+/**
+ * Setup Time-Driven Triggers for Daily Operations
+ */
+function setupDailyTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  let snapshotExists = false;
+  let backupExists = false;
+
+  for (let i = 0; i < triggers.length; i++) {
+    let fn = triggers[i].getHandlerFunction();
+    if (fn === 'recordDailyStockSnapshot') snapshotExists = true;
+    if (fn === 'dailyDatabaseBackup') backupExists = true;
+  }
+
+  if (!snapshotExists) {
+    ScriptApp.newTrigger('recordDailyStockSnapshot')
+      .timeBased()
+      .atHour(23)
+      .nearMinute(50)
+      .everyDays(1)
+      .create();
+  }
+
+  if (!backupExists) {
+    ScriptApp.newTrigger('dailyDatabaseBackup')
+      .timeBased()
+      .atHour(2) // 2 AM Daily
+      .nearMinute(0)
+      .everyDays(1)
+      .create();
+  }
+}
+
+// -----------------------------------------
+// Transaction Engine API Layer
+// -----------------------------------------
+
+/**
+ * Saves a Multi-line Transaction Document
+ * Inserts into Header and Line Items synchronously.
+ */
+function saveTransactionDoc(docType, headerData, lines) {
+    const auth = validateUser();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+
+    try {
+        const ss = SpreadsheetApp.openById(getDbId());
+
+        let headerSheetName, linesSheetName, docIdPrefix;
+        if (docType === 'Purchase Orders') {
+            headerSheetName = 'PURCHASE_ORDERS';
+            linesSheetName = 'PURCHASE_ORDER_ITEMS';
+            docIdPrefix = 'PO';
+        } else if (docType === 'Sales Orders') {
+            headerSheetName = 'SALES_ORDERS';
+            linesSheetName = 'SALES_ORDER_ITEMS';
+            docIdPrefix = 'SO';
+        } else if (docType === 'Dispatch') {
+            headerSheetName = 'DISPATCH';
+            linesSheetName = 'DISPATCH_ITEMS';
+            docIdPrefix = 'Dispatch';
+        } else if (docType === 'Internal Transfers') {
+            headerSheetName = 'INTERNAL_TRANSFERS';
+            linesSheetName = 'INTERNAL_TRANSFER_ITEMS';
+            docIdPrefix = 'Transfer';
+        } else {
+            throw new Error('Unsupported docType for generic save: ' + docType);
+        }
+
+        const hSheet = ss.getSheetByName(headerSheetName);
+        const lSheet = ss.getSheetByName(linesSheetName);
+        const docNo = getNextSequence(headerSheetName);
+        const now = new Date();
+
+        // Write Header
+        const hHeaders = hSheet.getRange(1, 1, 1, hSheet.getLastColumn()).getValues()[0];
+        let hRow = Array(hHeaders.length).fill("");
+        hRow[hHeaders.indexOf('RecordID')] = Utilities.getUuid();
+        hRow[hHeaders.indexOf(docIdPrefix + '_Number')] = docNo;
+        hRow[hHeaders.indexOf('Date')] = headerData.Date || now;
+
+        if (docType === 'Purchase Orders') {
+            hRow[hHeaders.indexOf('Supplier_Code')] = headerData.Party_Code;
+        } else if (docType === 'Sales Orders' || docType === 'Dispatch') {
+            hRow[hHeaders.indexOf('Customer_Code')] = headerData.Party_Code;
+        }
+
+        if (docType === 'Dispatch') {
+            hRow[hHeaders.indexOf('SO_Number')] = headerData.SO_Number || '';
+            hRow[hHeaders.indexOf('Vehicle_No')] = headerData.Vehicle_No || '';
+        } else if (docType === 'Internal Transfers') {
+             hRow[hHeaders.indexOf('From_Loc')] = headerData.From_Loc || '';
+             hRow[hHeaders.indexOf('To_Loc')] = headerData.To_Loc || '';
+        }
+
+        hRow[hHeaders.indexOf('Status')] = 'Pending Approval';
+        hRow[hHeaders.indexOf('CreatedBy')] = auth.email;
+        hRow[hHeaders.indexOf('CreatedDateTime')] = now;
+        hRow[hHeaders.indexOf('IsDeleted')] = 'FALSE';
+        hSheet.appendRow(hRow);
+
+        // Write Lines
+        const lHeaders = lSheet.getRange(1, 1, 1, lSheet.getLastColumn()).getValues()[0];
+        let linesBatch = [];
+
+        lines.forEach(line => {
+            let lRow = Array(lHeaders.length).fill("");
+            lRow[lHeaders.indexOf('RecordID')] = Utilities.getUuid();
+            lRow[lHeaders.indexOf(docIdPrefix + '_Number')] = docNo;
+            lRow[lHeaders.indexOf('Item_Code')] = line.Item_Code;
+            lRow[lHeaders.indexOf('Loc_Code')] = line.Loc_Code || '';
+            lRow[lHeaders.indexOf('Qty')] = line.Qty;
+
+            if (docType === 'Sales Orders') {
+                lRow[lHeaders.indexOf('Dispatched_Qty')] = 0;
+            } else if (docType === 'Dispatch') {
+                lRow[lHeaders.indexOf('Dispatch_Qty')] = line.Qty;
+            }
+
+            lRow[lHeaders.indexOf('CreatedBy')] = auth.email;
+            lRow[lHeaders.indexOf('CreatedDateTime')] = now;
+            lRow[lHeaders.indexOf('IsDeleted')] = 'FALSE';
+            linesBatch.push(lRow);
+        });
+
+        if (linesBatch.length > 0) {
+            lSheet.getRange(lSheet.getLastRow() + 1, 1, linesBatch.length, linesBatch[0].length).setValues(linesBatch);
+        }
+
+        createAuditLog(headerSheetName, 'Create', docNo, null, {headerData, lines});
+
+        return { success: true, docNo: docNo, message: `${docType} ${docNo} created successfully.` };
+
+    } catch(e) {
+        return { success: false, error: e.toString() };
+    } finally {
+        lock.releaseLock();
+    }
 }
