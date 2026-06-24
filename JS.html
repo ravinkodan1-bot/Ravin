@@ -1,0 +1,1079 @@
+<script>
+// Phase 2 Frontend JS Framework
+
+const App = {
+    user: null,
+    currentModule: null,
+    dataTableObj: null,
+
+    init: function() {
+        this.showLoader();
+        google.script.run.withSuccessHandler(res => {
+            if (res.success) {
+                this.user = res.user;
+                document.getElementById('user-info').innerText = `Logged in as: ${this.user.email} (${this.user.role})`;
+                this.hideLoader();
+                this.loadModule('dashboard');
+            } else {
+                this.hideLoader();
+                document.getElementById('content-area').innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+            }
+        }).authenticateUser();
+    },
+
+    showLoader: function() {
+        document.getElementById('global-loader').classList.remove('d-none');
+    },
+
+    hideLoader: function() {
+        document.getElementById('global-loader').classList.add('d-none');
+    },
+
+    showToast: function(message, type = 'info') {
+        const toastId = 'toast-' + Date.now();
+        let bgClass = 'bg-primary';
+        if (type === 'success') bgClass = 'bg-success';
+        if (type === 'error') bgClass = 'bg-danger';
+        if (type === 'warning') bgClass = 'bg-warning text-dark';
+
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-white border-0 ${bgClass}" role="alert" aria-live="assertive" aria-atomic="true">
+              <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+              </div>
+            </div>`;
+
+        document.getElementById('toastContainer').insertAdjacentHTML('beforeend', toastHtml);
+        const toastEl = new bootstrap.Toast(document.getElementById(toastId));
+        toastEl.show();
+
+        document.getElementById(toastId).addEventListener('hidden.bs.toast', function () {
+            this.remove();
+        });
+    },
+
+    confirmAction: function(title, message, callback) {
+        document.getElementById('confirmTitle').innerText = title;
+        document.getElementById('confirmMessage').innerText = message;
+        const confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+
+        const btn = document.getElementById('confirmBtn');
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn); // remove old listeners
+
+        newBtn.addEventListener('click', () => {
+            confirmModal.hide();
+            callback();
+        });
+        confirmModal.show();
+    },
+
+    loadModule: function(moduleName) {
+        this.currentModule = moduleName;
+        const container = document.getElementById('content-area');
+
+        if (moduleName === 'dashboard') {
+            container.innerHTML = `<h2>Dashboard</h2><p>Welcome to IMS Enterprise.</p>`;
+            return;
+        }
+
+        // Generic Master Data Module Loader
+        const sheetMap = {
+            'users': 'USERS',
+            'items': 'ITEMS',
+            'parties': 'PARTIES',
+            'locations': 'LOCATIONS'
+        };
+
+        const sheetName = sheetMap[moduleName];
+        if (sheetName) {
+            container.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2>${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)} Master</h2>
+                    <button class="btn btn-primary" onclick="App.openCreateModal('${sheetName}')">
+                        <i class="fa fa-plus"></i> Add New
+                    </button>
+                </div>
+                <div class="card p-3 shadow-sm">
+                    <div class="table-responsive">
+                        <table id="dt-${sheetName}" class="table table-striped table-hover w-100">
+                            <!-- Table headers generated dynamically -->
+                        </table>
+                    </div>
+                </div>`;
+
+            this.loadMasterData(sheetName);
+        }
+    },
+
+    loadMasterData: function(sheetName) {
+        this.showLoader();
+        google.script.run.withSuccessHandler(res => {
+            this.hideLoader();
+            if (res.success) {
+                this.renderDataTable(sheetName, res.data);
+            } else {
+                this.showToast(res.error, 'error');
+            }
+        }).getMasterData(sheetName);
+    },
+
+    renderDataTable: function(sheetName, data) {
+        if (this.dataTableObj) {
+            this.dataTableObj.destroy();
+            $(`#dt-${sheetName}`).empty();
+        }
+
+        if (data.length === 0) {
+            $(`#dt-${sheetName}`).html('<thead><tr><th>No Data</th></tr></thead><tbody><tr><td>No records found.</td></tr></tbody>');
+            return;
+        }
+
+        const headers = Object.keys(data[0]);
+        // Filter out system tracking columns from generic display
+        const displayHeaders = headers.filter(h => !['CreatedBy', 'CreatedDateTime', 'UpdatedBy', 'UpdatedDateTime', 'DeletedBy', 'DeletedDateTime', 'IsDeleted'].includes(h));
+
+        let thead = '<thead><tr>';
+        displayHeaders.forEach(h => thead += `<th>${h}</th>`);
+        thead += '<th>Actions</th></tr></thead>';
+
+        let tbody = '<tbody>';
+        data.forEach(row => {
+            tbody += '<tr>';
+            displayHeaders.forEach(h => tbody += `<td>${this.escapeHTML(row[h])}</td>`);
+
+            const idField = headers[0]; // Assuming first col is ID (e.g. UserID)
+            const rowId = row[idField];
+
+            tbody += `<td class="action-icons">
+                        <i class="fa fa-edit" title="Edit" onclick="App.openEditModal('${sheetName}', '${rowId}')"></i>
+                        <i class="fa fa-trash" title="Delete" onclick="App.deleteRecord('${sheetName}', '${headers[0]}', '${rowId}')"></i>
+                      </td>`;
+            tbody += '</tr>';
+        });
+        tbody += '</tbody>';
+
+        $(`#dt-${sheetName}`).html(thead + tbody);
+
+        this.dataTableObj = $(`#dt-${sheetName}`).DataTable({
+            pageLength: 50, // Default Pagination from SETTINGS config concept
+            responsive: true
+        });
+    },
+
+    deleteRecord: function(sheetName, idColName, recordId) {
+        this.confirmAction('Delete Record', `Are you sure you want to delete ${recordId}?`, () => {
+            this.showLoader();
+            google.script.run.withSuccessHandler(res => {
+                this.hideLoader();
+                if (res.success) {
+                    this.showToast(res.message, 'success');
+                    this.loadMasterData(sheetName);
+                } else {
+                    this.showToast(res.error, 'error');
+                }
+            }).softDeleteRecord(sheetName, idColName, recordId);
+        });
+    },
+
+    escapeHTML: function(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    // Stubs for modal logic
+    openCreateModal: function(sheetName) {
+        this.showToast("Create logic to be hooked up to unified form builder.", "info");
+    },
+
+    openEditModal: function(sheetName, recordId) {
+        this.showToast("Edit logic for " + recordId + " to be hooked up.", "info");
+    }
+};
+
+document.addEventListener("DOMContentLoaded", () => App.init());
+// Dashboard UI and Chart.js integration
+App.renderDashboard = function() {
+    this.showLoader();
+
+    // We need Chart.js via CDN injected into DOM if not present
+    if (typeof Chart === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/npm/chart.js";
+        script.onload = () => this.fetchDashboardData();
+        document.head.appendChild(script);
+    } else {
+        this.fetchDashboardData();
+    }
+};
+
+App.fetchDashboardData = function() {
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if (res.success) {
+            const container = document.getElementById('content-area');
+
+            let html = `
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-primary text-white shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Available Stock</h5>
+                            <h2 class="mb-0">${res.kpis.totalAvailable}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-success text-white shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Physical Stock</h5>
+                            <h2 class="mb-0">${res.kpis.totalPhysical}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-warning text-dark shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Reserved Stock</h5>
+                            <h2 class="mb-0">${res.kpis.totalReserved}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-info text-white shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Pending POs</h5>
+                            <h2 class="mb-0">${res.kpis.pendingPOs}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-secondary text-white shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Pending SOs</h5>
+                            <h2 class="mb-0">${res.kpis.pendingSOs}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-danger text-white shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Dispatches Today</h5>
+                            <h2 class="mb-0">${res.kpis.dispatchToday}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">Stock Composition</h5>
+                            <canvas id="stockPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+
+            container.innerHTML = html;
+
+            // Render Chart
+            const ctx = document.getElementById('stockPieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Available', 'Reserved'],
+                    datasets: [{
+                        data: [res.kpis.totalAvailable, res.kpis.totalReserved],
+                        backgroundColor: ['#0d6efd', '#ffc107']
+                    }]
+                }
+            });
+
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).getDashboardKPIs();
+};
+
+// Override loadModule to intercept Dashboard
+const originalLoadModule = App.loadModule.bind(App);
+App.loadModule = function(moduleName) {
+    if (moduleName === 'dashboard') {
+        this.renderDashboard();
+    } else {
+        originalLoadModule(moduleName);
+    }
+};
+
+// Generic Reporting UI Hook
+App.renderReportUI = function(reportType, reportTitle) {
+    this.currentModule = reportType;
+    const container = document.getElementById('content-area');
+
+    // Provide filter inputs (Date Range, Item Code)
+    let filterHtml = `
+    <div class="card mb-3 shadow-sm">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label>Start Date</label>
+                    <input type="date" id="filter-start" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>End Date</label>
+                    <input type="date" id="filter-end" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Item Code (Optional)</label>
+                    <input type="text" id="filter-item" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100" onclick="App.runReport('${reportType}')">
+                        <i class="fa fa-filter"></i> Generate Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    let tableHtml = `
+    <div class="card p-3 shadow-sm">
+        <div class="table-responsive">
+            <table id="dt-report-${reportType}" class="table table-striped table-hover w-100">
+                <!-- Data populated dynamically -->
+            </table>
+        </div>
+    </div>`;
+
+    container.innerHTML = `<h2>${reportTitle}</h2>` + filterHtml + tableHtml;
+};
+
+App.runReport = function(reportType) {
+    const filters = {
+        startDate: document.getElementById('filter-start').value,
+        endDate: document.getElementById('filter-end').value,
+        itemCode: document.getElementById('filter-item').value
+    };
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if (res.success) {
+            this.renderReportDataTable(reportType, res.data);
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).getReportData(reportType, filters);
+};
+
+App.renderReportDataTable = function(reportType, data) {
+    const tableId = `dt-report-${reportType}`;
+
+    if (this.dataTableObj) {
+        this.dataTableObj.destroy();
+        $(`#${tableId}`).empty();
+    }
+
+    if (data.length === 0) {
+        $(`#${tableId}`).html('<thead><tr><th>No Data</th></tr></thead><tbody><tr><td>No records match filters.</td></tr></tbody>');
+        return;
+    }
+
+    const headers = Object.keys(data[0]).filter(h => !['CreatedBy', 'CreatedDateTime', 'UpdatedBy', 'UpdatedDateTime', 'DeletedBy', 'DeletedDateTime', 'IsDeleted'].includes(h));
+
+    let thead = '<thead><tr>';
+    headers.forEach(h => thead += `<th>${h}</th>`);
+    thead += '</tr></thead>';
+
+    let tbody = '<tbody>';
+    data.forEach(row => {
+        tbody += '<tr>';
+        headers.forEach(h => tbody += `<td>${this.escapeHTML(row[h])}</td>`);
+        tbody += '</tr>';
+    });
+    tbody += '</tbody>';
+
+    $(`#${tableId}`).html(thead + tbody);
+
+    this.dataTableObj = $(`#${tableId}`).DataTable({
+        pageLength: 100,
+        responsive: true,
+        dom: 'Bfrtip',
+        // In a real env, include DT export buttons JS extensions here
+        buttons: ['copy', 'csv', 'excel']
+    });
+};
+
+// Phase 3 Stubs for Transaction Modules in UI
+// Note: In a full production application, these would map to comprehensive forms
+// encompassing Header/Line architecture.
+
+App.renderTransactionUI = function(docType) {
+    this.currentModule = docType;
+    const container = document.getElementById('content-area');
+
+    // Very simplified generic listing to demonstrate integration
+    let tableHtml = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>${docType} Management</h2>
+        <button class="btn btn-primary" onclick="App.showToast('Open full form for ${docType}', 'info')">
+            <i class="fa fa-plus"></i> Create New
+        </button>
+    </div>
+    <div class="card p-3 shadow-sm">
+        <div class="table-responsive">
+            <table id="dt-${docType}" class="table table-striped table-hover w-100">
+                <!-- Data populated dynamically -->
+            </table>
+        </div>
+    </div>`;
+
+    container.innerHTML = tableHtml;
+
+    let sheetMap = {
+        'Purchase Orders': 'PURCHASE_ORDERS',
+        'Sales Orders': 'SALES_ORDERS',
+        'Dispatch': 'DISPATCH',
+        'Internal Transfers': 'INTERNAL_TRANSFERS'
+    };
+
+    this.loadMasterData(sheetMap[docType]);
+};
+// Phase 3 Implementations for UI Forms
+App.openCreateTransactionModal = function(docType) {
+    this.showToast(`Full Create Form for ${docType} would open here with line item inputs.`, 'info');
+};
+
+// Override renderTransactionUI to provide an actual button hook
+App.renderTransactionUI = function(docType) {
+    this.currentModule = docType;
+    const container = document.getElementById('content-area');
+
+    let tableHtml = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>${docType} Management</h2>
+        <button class="btn btn-primary" onclick="App.openCreateTransactionModal('${docType}')">
+            <i class="fa fa-plus"></i> Create New
+        </button>
+    </div>
+    <div class="card p-3 shadow-sm">
+        <div class="table-responsive">
+            <table id="dt-${docType}" class="table table-striped table-hover w-100">
+                <!-- Data populated dynamically -->
+            </table>
+        </div>
+    </div>`;
+
+    container.innerHTML = tableHtml;
+
+    let sheetMap = {
+        'Purchase Orders': 'PURCHASE_ORDERS',
+        'Sales Orders': 'SALES_ORDERS',
+        'Dispatch': 'DISPATCH',
+        'Internal Transfers': 'INTERNAL_TRANSFERS'
+    };
+
+    this.loadMasterData(sheetMap[docType]);
+};
+// --- PURCHASE ORDERS ---
+
+App.renderPOCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Purchase Order</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Purchase Orders')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Date</label>
+                <input type="date" id="po-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-4">
+                <label>Supplier Code</label>
+                <input type="text" id="po-supplier" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label>Remarks</label>
+                <input type="text" id="po-remarks" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addPOLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="po-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Location Code</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="po-lines-body">
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-end fw-bold">Total Amount</td>
+                    <td id="po-total" class="fw-bold">0.00</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitPO()">Submit For Approval</button>
+        </div>
+    </div>`;
+    this.addPOLine();
+};
+
+App.addPOLine = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control po-item" required></td>
+        <td><input type="text" class="form-control po-loc" required></td>
+        <td><input type="number" class="form-control po-qty" value="0" min="1" oninput="App.calcPOLine(this)"></td>
+        <td><input type="number" class="form-control po-rate" value="0" min="0" step="0.01" oninput="App.calcPOLine(this)"></td>
+        <td><input type="text" class="form-control po-amount" readonly value="0.00"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove(); App.calcPOTotal();"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('po-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.calcPOLine = function(el) {
+    let tr = el.closest('tr');
+    let qty = parseFloat(tr.querySelector('.po-qty').value) || 0;
+    let rate = parseFloat(tr.querySelector('.po-rate').value) || 0;
+    tr.querySelector('.po-amount').value = (qty * rate).toFixed(2);
+    this.calcPOTotal();
+};
+
+App.calcPOTotal = function() {
+    let total = 0;
+    document.querySelectorAll('.po-amount').forEach(el => {
+        total += parseFloat(el.value) || 0;
+    });
+    document.getElementById('po-total').innerText = total.toFixed(2);
+};
+
+App.submitPO = function() {
+    let header = {
+        Date: document.getElementById('po-date').value,
+        Party_Code: document.getElementById('po-supplier').value,
+        Remarks: document.getElementById('po-remarks').value
+    };
+
+    if(!header.Party_Code) return this.showToast('Supplier is required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#po-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.po-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.po-item').value,
+                Loc_Code: tr.querySelector('.po-loc').value,
+                Qty: qty,
+                Rate: parseFloat(tr.querySelector('.po-rate').value) || 0,
+                Amount: parseFloat(tr.querySelector('.po-amount').value) || 0
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Purchase Orders');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveTransactionDoc('Purchase Orders', header, lines);
+};
+
+// --- SALES ORDERS ---
+
+App.renderSOCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Sales Order</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Sales Orders')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label>Date</label>
+                <input type="date" id="so-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-4">
+                <label>Customer Code</label>
+                <input type="text" id="so-customer" class="form-control">
+            </div>
+            <div class="col-md-4">
+                <label>Remarks</label>
+                <input type="text" id="so-remarks" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addSOLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="so-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Location Code (Reserve From)</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="so-lines-body">
+            </tbody>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitSO()">Submit For Approval</button>
+        </div>
+    </div>`;
+    this.addSOLine();
+};
+
+App.addSOLine = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control so-item" required></td>
+        <td><input type="text" class="form-control so-loc" required></td>
+        <td><input type="number" class="form-control so-qty" value="0" min="1" oninput="App.calcSOLine(this)"></td>
+        <td><input type="number" class="form-control so-rate" value="0" min="0" step="0.01" oninput="App.calcSOLine(this)"></td>
+        <td><input type="text" class="form-control so-amount" readonly value="0.00"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('so-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.calcSOLine = function(el) {
+    let tr = el.closest('tr');
+    let qty = parseFloat(tr.querySelector('.so-qty').value) || 0;
+    let rate = parseFloat(tr.querySelector('.so-rate').value) || 0;
+    tr.querySelector('.so-amount').value = (qty * rate).toFixed(2);
+};
+
+App.submitSO = function() {
+    let header = {
+        Date: document.getElementById('so-date').value,
+        Party_Code: document.getElementById('so-customer').value,
+        Remarks: document.getElementById('so-remarks').value
+    };
+
+    if(!header.Party_Code) return this.showToast('Customer is required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#so-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.so-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.so-item').value,
+                Loc_Code: tr.querySelector('.so-loc').value,
+                Qty: qty,
+                Rate: parseFloat(tr.querySelector('.so-rate').value) || 0,
+                Amount: parseFloat(tr.querySelector('.so-amount').value) || 0
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Sales Orders');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveTransactionDoc('Sales Orders', header, lines);
+};
+
+// --- DISPATCH ---
+
+App.renderDispatchCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Dispatch</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Dispatch')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Load Pending Sales Order</h5>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label>SO Number</label>
+                <input type="text" id="disp-so" class="form-control" placeholder="SO-26-27-00001">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary w-100" onclick="App.loadSOForDispatch()">Load SO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dispatch-form-area" class="d-none">
+        <div class="card p-4 shadow-sm mb-4">
+            <h5>Dispatch Header</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label>Date</label>
+                    <input type="date" id="disp-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <div class="col-md-3">
+                    <label>Customer</label>
+                    <input type="text" id="disp-cust" class="form-control" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label>Vehicle No</label>
+                    <input type="text" id="disp-vehicle" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label>Remarks</label>
+                    <input type="text" id="disp-remarks" class="form-control">
+                </div>
+            </div>
+        </div>
+        <div class="card p-4 shadow-sm">
+            <h5>Lines to Dispatch</h5>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Location Code</th>
+                        <th>Ordered Qty</th>
+                        <th>Pending Balance</th>
+                        <th>Dispatch Qty</th>
+                    </tr>
+                </thead>
+                <tbody id="disp-lines-body">
+                </tbody>
+            </table>
+            <div class="mt-3 text-end">
+                <button class="btn btn-primary" onclick="App.submitDispatch()">Submit Dispatch</button>
+            </div>
+        </div>
+    </div>`;
+};
+
+App.loadSOForDispatch = function() {
+    const soNo = document.getElementById('disp-so').value;
+    if(!soNo) return this.showToast('Enter an SO Number', 'warning');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success) {
+            document.getElementById('dispatch-form-area').classList.remove('d-none');
+            document.getElementById('disp-cust').value = res.header.Customer_Code;
+
+            let tbody = '';
+            res.lines.forEach((line, idx) => {
+                tbody += `
+                <tr>
+                    <td><input type="text" class="form-control d-item" readonly value="${line.Item_Code}"></td>
+                    <td><input type="text" class="form-control d-loc" readonly value="${line.Loc_Code || ''}"></td>
+                    <td><input type="text" class="form-control" readonly value="${line.Qty}"></td>
+                    <td><input type="text" class="form-control d-bal" readonly value="${line.Balance_Qty}"></td>
+                    <td><input type="number" class="form-control d-qty" value="0" min="0" max="${line.Balance_Qty}"></td>
+                </tr>`;
+            });
+            document.getElementById('disp-lines-body').innerHTML = tbody;
+            this.showToast('SO Loaded successfully', 'success');
+        } else {
+            this.showToast(res.error, 'error');
+            document.getElementById('dispatch-form-area').classList.add('d-none');
+        }
+    }).getPendingSOForDispatch(soNo);
+};
+
+App.submitDispatch = function() {
+    let header = {
+        Date: document.getElementById('disp-date').value,
+        SO_Number: document.getElementById('disp-so').value,
+        Customer_Code: document.getElementById('disp-cust').value,
+        Vehicle_No: document.getElementById('disp-vehicle').value,
+        Remarks: document.getElementById('disp-remarks').value
+    };
+
+    let lines = [];
+    document.querySelectorAll('#disp-lines-body tr').forEach(tr => {
+        let dispatchQty = parseFloat(tr.querySelector('.d-qty').value) || 0;
+        let balanceQty = parseFloat(tr.querySelector('.d-bal').value) || 0;
+
+        if (dispatchQty > balanceQty) {
+            return this.showToast('Cannot dispatch more than pending balance.', 'error');
+        }
+
+        if (dispatchQty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.d-item').value,
+                Loc_Code: tr.querySelector('.d-loc').value,
+                Dispatch_Qty: dispatchQty
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one line item with quantity > 0', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Dispatch');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).processDispatch(header, lines);
+};
+
+// --- INTERNAL TRANSFERS ---
+
+App.renderTransferCreate = function() {
+    const container = document.getElementById('content-area');
+    container.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Create Internal Transfer</h2>
+        <button class="btn btn-secondary" onclick="App.renderTransactionUI('Internal Transfers')">Back to List</button>
+    </div>
+    <div class="card p-4 shadow-sm mb-4">
+        <h5>Header Details</h5>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label>Date</label>
+                <input type="date" id="tr-date" class="form-control" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div class="col-md-3">
+                <label>Source Loc Code</label>
+                <input type="text" id="tr-src" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label>Destination Loc Code</label>
+                <input type="text" id="tr-dst" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label>Remarks</label>
+                <input type="text" id="tr-remarks" class="form-control">
+            </div>
+        </div>
+    </div>
+    <div class="card p-4 shadow-sm">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5>Line Items</h5>
+            <button class="btn btn-sm btn-success" onclick="App.addTransferLine()"><i class="fa fa-plus"></i> Add Line</button>
+        </div>
+        <table class="table table-bordered" id="tr-lines">
+            <thead class="table-light">
+                <tr>
+                    <th>Item Code</th>
+                    <th>Batch (Opt)</th>
+                    <th>Transfer Qty</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="tr-lines-body">
+            </tbody>
+        </table>
+        <div class="mt-3 text-end">
+            <button class="btn btn-primary" onclick="App.submitTransfer()">Submit Transfer</button>
+        </div>
+    </div>`;
+    this.addTransferLine();
+};
+
+App.addTransferLine = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control tr-item" required></td>
+        <td><input type="text" class="form-control tr-batch"></td>
+        <td><input type="number" class="form-control tr-qty" value="0" min="1"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove();"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('tr-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.submitTransfer = function() {
+    let header = {
+        Date: document.getElementById('tr-date').value,
+        From_Loc: document.getElementById('tr-src').value,
+        To_Loc: document.getElementById('tr-dst').value,
+        Remarks: document.getElementById('tr-remarks').value
+    };
+
+    if(!header.From_Loc || !header.To_Loc) return this.showToast('Source and Destination are required', 'error');
+
+    let lines = [];
+    document.querySelectorAll('#tr-lines-body tr').forEach(tr => {
+        let qty = parseFloat(tr.querySelector('.tr-qty').value) || 0;
+        if(qty > 0) {
+            lines.push({
+                Item_Code: tr.querySelector('.tr-item').value,
+                Batch_No: tr.querySelector('.tr-batch').value,
+                Qty: qty
+            });
+        }
+    });
+
+    if(lines.length === 0) return this.showToast('Add at least one valid line item', 'error');
+
+    this.showLoader();
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success){
+            this.showToast(res.message, 'success');
+            this.renderTransactionUI('Internal Transfers');
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).processInternalTransfer(header, lines);
+};
+
+// --- TRANSACTION ENTRY ROUTER ---
+App.openCreateTransaction = function(docType) {
+    if (docType === 'Purchase Orders') this.renderPOCreate();
+    else if (docType === 'Sales Orders') this.renderSOCreate();
+    else if (docType === 'Dispatch') this.renderDispatchCreate();
+    else if (docType === 'Internal Transfers') this.renderTransferCreate();
+};
+        existing.remove();
+App.openCreateTransactionModal = function(docType) {
+    this.currentDocType = docType;
+    let html = `
+    <div class="modal fade" id="transactionModal" tabindex="-1">
+      <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Create ${docType}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+             <div class="row mb-3">
+                 <div class="col-md-6">
+                     <label>Party/Location Selection</label>
+                     <input type="text" id="trans-party" class="form-control" placeholder="Select Party or Loc">
+                 </div>
+                 <div class="col-md-6">
+                     <label>Date</label>
+                     <input type="date" id="trans-date" class="form-control">
+                 </div>
+             </div>
+             <hr>
+             <h6>Line Items</h6>
+             <table class="table" id="trans-lines">
+                <thead>
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Qty</th>
+                        <th>Location (if needed)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="trans-lines-body">
+                    <tr>
+                        <td><input type="text" class="form-control line-item"></td>
+                        <td><input type="number" class="form-control line-qty"></td>
+                        <td><input type="text" class="form-control line-loc"></td>
+                        <td><button class="btn btn-sm btn-danger"><i class="fa fa-trash"></i></button></td>
+                    </tr>
+                </tbody>
+             </table>
+             <button class="btn btn-sm btn-secondary" onclick="App.addLineItem()">Add Line</button>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" onclick="App.submitTransaction()">Submit Approval</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    // Remove if exists
+    let existing = document.getElementById('transactionModal');
+    if (existing) {
+        let modalInstance = bootstrap.Modal.getInstance(existing);
+        if(modalInstance) modalInstance.dispose();
+        existing.remove();
+    }
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    let myModal = new bootstrap.Modal(document.getElementById('transactionModal'));
+    myModal.show();
+};
+
+App.addLineItem = function() {
+    let html = `
+    <tr>
+        <td><input type="text" class="form-control line-item"></td>
+        <td><input type="number" class="form-control line-qty"></td>
+        <td><input type="text" class="form-control line-loc"></td>
+        <td><button class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fa fa-trash"></i></button></td>
+    </tr>`;
+    document.getElementById('trans-lines-body').insertAdjacentHTML('beforeend', html);
+};
+
+App.submitTransaction = function() {
+    this.showLoader();
+
+    let headerData = {
+        Party_Code: document.getElementById('trans-party').value,
+        Date: document.getElementById('trans-date').value
+    };
+
+    let lines = [];
+    const rows = document.querySelectorAll('#trans-lines-body tr');
+    rows.forEach(row => {
+        lines.push({
+            Item_Code: row.querySelector('.line-item').value,
+            Qty: parseFloat(row.querySelector('.line-qty').value) || 0,
+            Loc_Code: row.querySelector('.line-loc').value
+        });
+    });
+
+    google.script.run.withSuccessHandler(res => {
+        this.hideLoader();
+        if(res.success) {
+            let modalEl = document.getElementById('transactionModal');
+            let modalInstance = bootstrap.Modal.getInstance(modalEl);
+            modalInstance.hide();
+            this.showToast(res.message, 'success');
+            this.loadMasterData(this.currentModule === 'Purchase Orders' ? 'PURCHASE_ORDERS' :
+                               (this.currentModule === 'Sales Orders' ? 'SALES_ORDERS' :
+                               (this.currentModule === 'Dispatch' ? 'DISPATCH' : 'INTERNAL_TRANSFERS')));
+        } else {
+            this.showToast(res.error, 'error');
+        }
+    }).saveTransactionDoc(this.currentModule, headerData, lines);
+};
+</script>
