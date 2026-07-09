@@ -35,19 +35,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    request.nextUrl.pathname.startsWith("/admin") &&
-    request.nextUrl.pathname !== "/admin/login"
-  ) {
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin") && request.nextUrl.pathname !== "/admin/login";
+  const isAdminApiRoute = request.nextUrl.pathname.startsWith("/api/admin");
+  const isProtectedRoute = isAdminRoute || isAdminApiRoute;
+
+  if (!user && isProtectedRoute) {
+    // If it's an API route, return 401 Unauthorized
+    if (isAdminApiRoute) {
+       return NextResponse.json({ error: 'Unauthorized access' }, { status: 401 });
+    }
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
     return NextResponse.redirect(url);
   }
 
-  // Optional: Check role if trying to access admin dashboard
-  if (user && request.nextUrl.pathname.startsWith("/admin") && request.nextUrl.pathname !== "/admin/login") {
+  // Check role if trying to access admin dashboard or admin APIs
+  if (user && isProtectedRoute) {
      const { data: userData } = await supabase
         .from('users')
         .select('role')
@@ -56,6 +60,9 @@ export async function updateSession(request: NextRequest) {
 
      if (!userData || !['SUPER_ADMIN', 'ADMIN', 'SALES'].includes(userData.role)) {
          // Unauthorized or viewer role trying to access protected areas
+         if (isAdminApiRoute) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+         }
          // Could redirect to a 'not-authorized' page or logout
          const url = request.nextUrl.clone();
          url.pathname = "/";

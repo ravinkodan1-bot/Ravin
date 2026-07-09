@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   const SCRIPT_URL = process.env.NEXT_PUBLIC_GOOGLE_SCRIPT_URL;
-  const API_KEY = process.env.GOOGLE_SCRIPT_API_KEY || 'skynovara_secure_api_key_2024';
+  const API_KEY = process.env.GOOGLE_SCRIPT_API_KEY;
 
-  if (!SCRIPT_URL) {
-    return NextResponse.json({ error: 'Google Script URL not configured' }, { status: 500 });
+  if (!SCRIPT_URL || !API_KEY) {
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
   }
 
   try {
