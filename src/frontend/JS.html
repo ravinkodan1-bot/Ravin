@@ -58,7 +58,7 @@ function handleRouting() {
       contentDiv.innerHTML = html;
       const scripts = contentDiv.querySelectorAll('script');
       scripts.forEach(s => eval(s.innerText));
-    }).include('src/frontend/DashboardUI');
+    }).include('DashboardUI');
   } else if (hash === '#jobs') {
     contentDiv.innerHTML = `
       <div class="row">
@@ -75,7 +75,7 @@ function handleRouting() {
       // Evaluate scripts in injected HTML
       const scripts = contentDiv.querySelectorAll('script');
       scripts.forEach(s => eval(s.innerText));
-    }).include('src/frontend/JobUI');
+    }).include('JobUI');
   } else {
     contentDiv.innerHTML = `<h2>404 - Not Found</h2>`;
   }

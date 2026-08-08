@@ -9,7 +9,7 @@
 function doGet(e) {
   // We need to serve index.html
   // As this is a generic setup for GAS, we build the template.
-  let template = HtmlService.createTemplateFromFile('src/frontend/Index');
+  let template = HtmlService.createTemplateFromFile('Index');
 
   // Mobile meta tag must be explicitly added here
   return template.evaluate()
