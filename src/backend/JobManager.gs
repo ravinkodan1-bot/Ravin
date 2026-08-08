@@ -31,10 +31,18 @@ function createJob(jobData) {
     const newJob = {
       Job_ID: jobId,
       Job_No: jobNo,
+      PI_Date: jobData.PI_Date || "",
       PI_No: jobData.PI_No,
+      Owner: jobData.Owner || "",
+      Importer: jobData.Importer || "",
       Supplier: jobData.Supplier,
       Item: jobData.Item,
+      Origin: jobData.Origin || "",
+      Invoice_No: jobData.Invoice_No || "",
       Value: jobData.Value || 0,
+      Quantity: jobData.Quantity || 0,
+      Rate: jobData.Rate || 0,
+      Remarks: jobData.Remarks || "",
       Terms: terms,
       Overall_Status: "PI_RECEIVED", // Initial state
       CreatedBy: user.Email,

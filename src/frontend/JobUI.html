@@ -8,15 +8,30 @@
         <form id="new-job-form">
 
           <!-- PI Details -->
-          <h5 class="border-bottom pb-2 mb-3">PI Details</h5>
+          <h5 class="border-bottom pb-2 mb-3">PI / Job Details</h5>
+
           <div class="row mb-3">
-            <div class="col-md-6">
+            <div class="col-md-4">
+              <label class="form-label">PI Date *</label>
+              <input type="date" class="form-control" id="job-pi-date" required>
+            </div>
+            <div class="col-md-4">
               <label class="form-label">PI Number *</label>
               <input type="text" class="form-control" id="job-pi" required>
             </div>
+            <div class="col-md-4">
+              <label class="form-label">Owner *</label>
+              <input type="text" class="form-control" id="job-owner" placeholder="e.g. Yashika Petrochem" required>
+            </div>
+          </div>
+
+          <div class="row mb-3">
             <div class="col-md-6">
-              <label class="form-label">Supplier *</label>
-              <!-- In reality, this would be populated dynamically from getSuppliers() -->
+              <label class="form-label">Importer *</label>
+              <input type="text" class="form-control" id="job-importer" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Supplier/Manufacturer *</label>
               <input type="text" class="form-control" id="job-supplier" required>
             </div>
           </div>
@@ -27,8 +42,34 @@
               <input type="text" class="form-control" id="job-item" required>
             </div>
             <div class="col-md-6">
-              <label class="form-label">Invoice Value</label>
-              <input type="number" step="0.01" class="form-control" id="job-value">
+              <label class="form-label">Origin</label>
+              <input type="text" class="form-control" id="job-origin">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Invoice No</label>
+              <input type="text" class="form-control" id="job-invoice-no">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Invoice Value *</label>
+              <input type="number" step="0.01" class="form-control" id="job-value" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Quantity</label>
+              <input type="number" step="0.01" class="form-control" id="job-quantity">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Rate</label>
+              <input type="number" step="0.01" class="form-control" id="job-rate">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-12">
+              <label class="form-label">Remarks</label>
+              <textarea class="form-control" id="job-remarks" rows="2"></textarea>
             </div>
           </div>
 
@@ -105,10 +146,18 @@ document.getElementById('new-job-form').addEventListener('submit', function(e) {
   };
 
   const payload = {
+    PI_Date: document.getElementById('job-pi-date').value,
     PI_No: document.getElementById('job-pi').value.trim(),
+    Owner: document.getElementById('job-owner').value.trim(),
+    Importer: document.getElementById('job-importer').value.trim(),
     Supplier: document.getElementById('job-supplier').value.trim(),
     Item: document.getElementById('job-item').value.trim(),
+    Origin: document.getElementById('job-origin').value.trim(),
+    Invoice_No: document.getElementById('job-invoice-no').value.trim(),
     Value: parseFloat(document.getElementById('job-value').value) || 0,
+    Quantity: parseFloat(document.getElementById('job-quantity').value) || 0,
+    Rate: parseFloat(document.getElementById('job-rate').value) || 0,
+    Remarks: document.getElementById('job-remarks').value.trim(),
     Terms: termsObj
   };
 

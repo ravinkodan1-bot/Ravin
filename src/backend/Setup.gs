@@ -15,7 +15,7 @@ const SCHEMAS = {
     "WORKFLOW_TEMPLATES": ["Template_ID", "Task_Code", "Task_Name", "Sequence", "Department", "Default_Role", "Condition_JSON", "Dependency_Code", "Is_Active"].concat(STANDARD_COLS)
   },
   "DATA": {
-    "JOBS": ["Job_ID", "Job_No", "PI_No", "Supplier", "Item", "Value", "Terms", "Overall_Status"].concat(STANDARD_COLS),
+    "JOBS": ["Job_ID", "Job_No", "PI_Date", "PI_No", "Owner", "Importer", "Supplier", "Item", "Origin", "Invoice_No", "Value", "Quantity", "Rate", "Remarks", "Terms", "Overall_Status"].concat(STANDARD_COLS),
     "PI_VERIFICATION": ["PI_Verification_ID", "Job_ID", "Verified_Date", "Company_Details_Checked", "Quantity_Checked", "Rate_Checked"].concat(STANDARD_COLS),
     "SALE_CONTRACTS": ["Contract_ID", "Job_ID", "Contract_No", "Signed_Date", "Document_Link"].concat(STANDARD_COLS),
     "PAYMENTS": ["Payment_ID", "Job_ID", "Payment_Type", "Requested_Amount", "Status", "Paid_Date", "SWIFT_Link"].concat(STANDARD_COLS),
