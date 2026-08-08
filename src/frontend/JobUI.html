@@ -1,0 +1,139 @@
+<div class="row">
+  <div class="col-12 col-md-8 offset-md-2">
+    <div class="card mt-4 shadow-sm">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">Create New Import Job</h4>
+      </div>
+      <div class="card-body">
+        <form id="new-job-form">
+
+          <!-- PI Details -->
+          <h5 class="border-bottom pb-2 mb-3">PI Details</h5>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">PI Number *</label>
+              <input type="text" class="form-control" id="job-pi" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Supplier *</label>
+              <!-- In reality, this would be populated dynamically from getSuppliers() -->
+              <input type="text" class="form-control" id="job-supplier" required>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Item Description *</label>
+              <input type="text" class="form-control" id="job-item" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Invoice Value</label>
+              <input type="number" step="0.01" class="form-control" id="job-value">
+            </div>
+          </div>
+
+          <!-- Payment Terms Configurator -->
+          <h5 class="border-bottom pb-2 mb-3 mt-4">Payment Terms Configuration</h5>
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Payment Mode *</label>
+              <select class="form-select" id="job-pay-mode" required>
+                <option value="AdvanceBalance">Advance / Balance</option>
+                <option value="LC">Letter of Credit (100%)</option>
+                <option value="100Advance">100% Advance</option>
+              </select>
+            </div>
+            <div class="col-md-4 advance-group">
+              <label class="form-label">Advance %</label>
+              <input type="number" class="form-control" id="job-pay-adv" value="30">
+            </div>
+            <div class="col-md-4 balance-group">
+              <label class="form-label">Balance %</label>
+              <input type="number" class="form-control" id="job-pay-bal" value="70">
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" onclick="window.location.hash='#jobs'">Cancel</button>
+            <button type="submit" class="btn btn-success" id="btn-create-job">
+              <i class="fas fa-save me-1"></i> Create Job
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Handle Payment Mode changes for UI
+document.getElementById('job-pay-mode').addEventListener('change', function(e) {
+  const mode = e.target.value;
+  const advGrp = document.querySelector('.advance-group');
+  const balGrp = document.querySelector('.balance-group');
+
+  if (mode === 'LC') {
+    advGrp.style.display = 'none';
+    balGrp.style.display = 'none';
+    document.getElementById('job-pay-adv').value = 0;
+    document.getElementById('job-pay-bal').value = 0;
+  } else if (mode === '100Advance') {
+    advGrp.style.display = 'block';
+    balGrp.style.display = 'none';
+    document.getElementById('job-pay-adv').value = 100;
+    document.getElementById('job-pay-bal').value = 0;
+  } else {
+    advGrp.style.display = 'block';
+    balGrp.style.display = 'block';
+    document.getElementById('job-pay-adv').value = 30;
+    document.getElementById('job-pay-bal').value = 70;
+  }
+});
+
+// Handle Form Submission
+document.getElementById('new-job-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const btn = document.getElementById('btn-create-job');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Creating...';
+
+  const termsObj = {
+    mode: document.getElementById('job-pay-mode').value,
+    advance: parseInt(document.getElementById('job-pay-adv').value) || 0,
+    balance: parseInt(document.getElementById('job-pay-bal').value) || 0
+  };
+
+  const payload = {
+    PI_No: document.getElementById('job-pi').value.trim(),
+    Supplier: document.getElementById('job-supplier').value.trim(),
+    Item: document.getElementById('job-item').value.trim(),
+    Value: parseFloat(document.getElementById('job-value').value) || 0,
+    Terms: termsObj
+  };
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Job Created',
+          text: `Job No: ${res.data.Job_No}`,
+          confirmButtonText: 'View Job'
+        }).then(() => {
+          window.location.hash = `#job/${res.data.Job_ID}`;
+        });
+      } else {
+        Swal.fire('Error', res.error, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i> Create Job';
+      }
+    })
+    .withFailureHandler(function(err) {
+      Swal.fire('Error', err.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-save me-1"></i> Create Job';
+    })
+    .createJob(payload);
+});
+</script>
