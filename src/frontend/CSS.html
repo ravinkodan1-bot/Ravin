@@ -1,0 +1,43 @@
+<style>
+/* Custom Overrides for ImportOps */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.navbar-brand {
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+/* DataTables / List views */
+.table-responsive {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.status-badge {
+  font-size: 0.85em;
+  padding: 0.35em 0.65em;
+}
+
+/* Kanban / Task Cards */
+.task-card {
+  border-left: 4px solid #0d6efd;
+  transition: transform 0.2s;
+}
+.task-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.task-card.status-pending { border-left-color: #ffc107; }
+.task-card.status-completed { border-left-color: #198754; }
+.task-card.status-overdue { border-left-color: #dc3545; }
+
+/* Utilities */
+.cursor-pointer {
+  cursor: pointer;
+}
+</style>

@@ -1,0 +1,101 @@
+<script>
+/**
+ * Frontend Core App Logic
+ */
+
+const AppState = {
+  user: null,
+  currentRoute: ''
+};
+
+// Initialize the app when DOM loads
+document.addEventListener("DOMContentLoaded", () => {
+  initApp();
+  window.addEventListener('hashchange', handleRouting);
+});
+
+function initApp() {
+  // Call Auth backend to verify user and get RBAC context
+  google.script.run
+    .withSuccessHandler(onSessionLoaded)
+    .withFailureHandler(onSystemError)
+    .initSession();
+}
+
+function onSessionLoaded(response) {
+  if (!response.success) {
+    document.getElementById('app-content').innerHTML = `
+      <div class="alert alert-danger mt-5">
+        <h4>Access Denied</h4>
+        <p>${escapeHTML(response.error)}</p>
+      </div>
+    `;
+    document.getElementById('user-email-display').innerText = "Unauthorized";
+    return;
+  }
+
+  AppState.user = response.data.user;
+  AppState.currentFY = response.data.currentFY;
+
+  // Format display: email (Role)
+  document.getElementById('user-email-display').innerHTML =
+    `${escapeHTML(AppState.user.email)} <span class="badge bg-secondary ms-2">${escapeHTML(AppState.user.role)}</span>`;
+
+  handleRouting();
+}
+
+function handleRouting() {
+  const hash = window.location.hash || '#dashboard';
+  AppState.currentRoute = hash;
+
+  const contentDiv = document.getElementById('app-content');
+
+  // Basic routing switch
+  if (hash === '#dashboard' || hash === '') {
+    // Inject Dashboard UI
+    contentDiv.innerHTML = `<div class="text-center mt-5"><i class="fas fa-spinner fa-spin fa-2x"></i></div>`;
+    google.script.run.withSuccessHandler(html => {
+      contentDiv.innerHTML = html;
+      const scripts = contentDiv.querySelectorAll('script');
+      scripts.forEach(s => eval(s.innerText));
+    }).include('DashboardUI');
+  } else if (hash === '#jobs') {
+    contentDiv.innerHTML = `
+      <div class="row">
+        <div class="col-12">
+          <h2>Jobs</h2>
+          <p class="text-muted">Jobs list will appear here.</p>
+        </div>
+      </div>
+    `;
+  } else if (hash === '#new-job') {
+    // Inject Job Creation UI
+    google.script.run.withSuccessHandler(html => {
+      contentDiv.innerHTML = html;
+      // Evaluate scripts in injected HTML
+      const scripts = contentDiv.querySelectorAll('script');
+      scripts.forEach(s => eval(s.innerText));
+    }).include('JobUI');
+  } else {
+    contentDiv.innerHTML = `<h2>404 - Not Found</h2>`;
+  }
+}
+
+function onSystemError(err) {
+  Swal.fire({
+    icon: 'error',
+    title: 'System Error',
+    text: err.message || 'An unexpected error occurred.'
+  });
+}
+
+/**
+ * Utility: HTML Escaper to prevent XSS
+ */
+function escapeHTML(str) {
+  if (str === null || str === undefined) return '';
+  const div = document.createElement('div');
+  div.innerText = str;
+  return div.innerHTML;
+}
+</script>
