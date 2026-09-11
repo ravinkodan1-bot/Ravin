@@ -1,329 +1,1585 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Material Management System</title>
 
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: white;
-}
+    <style>
+        :root {
+            --sidebar-width: 250px;
+        }
 
-.box {
-  width: 100%;
-  min-height: 100vh;
-  background: white;
-  padding: 20px 0px 50px;
-}
+        body {
+            overflow-x: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
 
-@media (min-width: 640px) {
-  body {
-    background: #eef2f7;
-    padding: 24px;
-    display: flex;
-    justify-content: center;
-  }
-  .box {
-    max-width: 640px;
-    min-height: unset;
-    border-radius: 18px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    padding: 28px 28px 40px;
-  }
-}
+        #wrapper {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
 
-h2 {
-  text-align: center;
-  color: #0b5394;
-  margin: 0 0 24px 0;
-  font-size: 26px;
-  font-weight: 800;
-  padding: 0 10px;
-}
+        #sidebar-wrapper {
+            width: var(--sidebar-width);
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
 
-.section-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0b5394;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 22px 0 10px;
-  padding: 0 10px 7px;
-  border-bottom: 2px solid #e0eaf5;
-}
+        #wrapper.toggled #sidebar-wrapper {
+            margin-left: calc(var(--sidebar-width) * -1);
+        }
 
-.row {
-  margin-bottom: 14px;
-  padding: 0 10px;
-}
+        #page-content-wrapper {
+            width: 100%;
+            min-width: 0;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
 
-label {
-  font-weight: 700;
-  display: block;
-  margin-bottom: 7px;
-  font-size: 15px;
-  color: #222;
-}
+        .list-group-item {
+            border-radius: 0.375rem !important;
+            margin-bottom: 0.25rem;
+            border: none !important;
+            background-color: transparent;
+            color: #adb5bd !important;
+            transition: all 0.2s;
+        }
 
-input:not([readonly]),
-textarea {
-  width: 100%;
-  padding: 16px 12px;
-  border: 2px solid #d0d8e4;
-  border-radius: 10px;
-  font-size: 17px;
-  outline: none;
-  background: #fff;
-  color: #111;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  -webkit-appearance: none;
-  appearance: none;
-}
+        .list-group-item:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
 
-input:not([readonly]):focus,
-textarea:focus {
-  border-color: #0b5394;
-  box-shadow: 0 0 0 4px rgba(11,83,148,0.12);
-}
+        .list-group-item.active {
+            background-color: #0d6efd !important;
+            color: #fff !important;
+            font-weight: 500;
+        }
 
-input[readonly] {
-  width: 100%;
-  padding: 13px 12px;
-  border: 1.5px solid #e0e6ef;
-  border-radius: 10px;
-  font-size: 15px;
-  background: #f0f5fb;
-  color: #555;
-  outline: none;
-}
+        .w-20 {
+            width: 20px;
+            text-align: center;
+        }
 
-textarea {
-  min-height: 100px;
-  resize: vertical;
-  line-height: 1.6;
-}
+        .metric-card {
+            transition: transform 0.2s;
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        }
 
-.btn-wrap {
-  padding: 0 10px;
-}
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
 
-button {
-  width: 100%;
-  background: #0b5394;
-  color: white;
-  border: none;
-  padding: 18px;
-  border-radius: 12px;
-  font-size: 20px;
-  font-weight: 800;
-  cursor: pointer;
-  margin-top: 12px;
-  -webkit-appearance: none;
-  transition: background 0.2s, transform 0.1s;
-}
+        .metric-icon {
+            font-size: 2.5rem;
+            opacity: 0.8;
+        }
 
-button:active {
-  transform: scale(0.97);
-  background: #073763;
-}
+        .table-container {
+            background: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            padding: 1rem;
+            overflow-x: auto;
+        }
 
-button:disabled {
-  background: #7fa8cc;
-}
+        .table th {
+            font-weight: 600;
+            background-color: #f8f9fa;
+            color: #495057;
+            white-space: nowrap;
+        }
 
-.msg-box {
-  margin: 16px 10px 0;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-  padding: 14px;
-  border-radius: 12px;
-  display: none;
-}
+        .table td {
+            vertical-align: middle;
+        }
 
-.msg-success {
-  color: #1a7a1a;
-  background: #e6f9e6;
-  border: 1.5px solid #b2e0b2;
-}
+        .badge-ok { background-color: #198754; color: white; }
+        .badge-low { background-color: #ffc107; color: #000; }
+        .badge-out { background-color: #dc3545; color: white; }
 
-.msg-error {
-  color: #b71c1c;
-  background: #fdecea;
-  border: 1.5px solid #f5c6c6;
-}
+        .transaction-row {
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
 
-  </style>
+        .required-asterisk {
+            color: #dc3545;
+            margin-left: 2px;
+        }
+
+        .row-photo-box {
+            width: 50px;
+            height: 50px;
+            border-radius: 0.375rem;
+            border: 1px solid #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #f8f9fa;
+            margin: 0 auto;
+        }
+
+        .row-photo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .row-photo-box i {
+            color: #ced4da;
+            font-size: 1.2rem;
+        }
+
+        .table-photo-thumb {
+            width: 42px;
+            height: 42px;
+            object-fit: cover;
+            border-radius: 0.375rem;
+            border: 1px solid #dee2e6;
+        }
+
+        .table-photo-placeholder {
+            width: 42px;
+            height: 42px;
+            border-radius: 0.375rem;
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ced4da;
+        }
+
+        @media (max-width: 768px) {
+            #wrapper {
+                overflow-x: hidden;
+            }
+            #sidebar-wrapper {
+                margin-left: calc(var(--sidebar-width) * -1);
+                position: absolute;
+                height: 100vh;
+            }
+            #wrapper.toggled #sidebar-wrapper {
+                margin-left: 0;
+                box-shadow: 0.5rem 0 1rem rgba(0,0,0,0.15);
+            }
+            .transaction-row .col-md-2,
+            .transaction-row .col-md-3 {
+                margin-bottom: 10px;
+            }
+            .remove-row-btn {
+                position: static;
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
+    </style>
 </head>
-
 <body>
-<div class="box">
 
-  <h2>🚚 Transit Entry Form</h2>
+    <div class="d-flex" id="wrapper">
+        <div class="bg-dark text-white border-end border-secondary" id="sidebar-wrapper">
+            <div class="sidebar-heading border-bottom border-secondary p-3 fs-5 fw-bold text-center">
+                <i class="fas fa-boxes-stacked me-2"></i>RMS
+            </div>
+            <div class="list-group list-group-flush mt-3 px-2">
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link active" data-target="view-dashboard">
+                    <i class="fas fa-tachometer-alt me-2 w-20"></i>Dashboard
+                </a>
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link" data-target="view-new-transaction">
+                    <i class="fas fa-plus-circle me-2 w-20"></i>New Transaction
+                </a>
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link" data-target="view-live-stock">
+                    <i class="fas fa-box-open me-2 w-20"></i>Live Stock
+                </a>
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link" data-target="view-daily-closing">
+                    <i class="fas fa-calendar-check me-2 w-20"></i>Daily Closing
+                </a>
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link" data-target="view-history">
+                    <i class="fas fa-history me-2 w-20"></i>Transaction History
+                </a>
+                <a href="#" class="list-group-item list-group-item-action list-group-item-dark nav-link" data-target="view-rate-comparison">
+                    <i class="fas fa-chart-line me-2 w-20"></i>Rate Comparison
+                </a>
+            </div>
+        </div>
 
-  <form id="myForm" autocomplete="off">
+        <div id="page-content-wrapper" class="w-100 bg-light">
+            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm px-3 py-2">
+                <div class="d-flex align-items-center w-100">
+                    <button class="btn btn-outline-secondary" id="menu-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h5 class="ms-3 mb-0 fw-bold text-secondary" id="page-title">Dashboard</h5>
+                    <div class="ms-auto d-flex align-items-center">
+                        <div id="global-loading" class="spinner-border spinner-border-sm text-primary d-none" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </nav>
 
-    <div class="section-title">From Party</div>
-
-    <div class="row">
-      <label>Party Name / फ्रॉम पार्टी</label>
-      <input list="fromPartyList" id="fromParty" placeholder="Select or type party name..." required>
-      <datalist id="fromPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="fromPartyCode" readonly placeholder="Auto-filled">
-    </div>
-
-    <div class="section-title">To Party</div>
-
-    <div class="row">
-      <label>Party Name / टू पार्टी</label>
-      <input list="toPartyList" id="toParty" placeholder="Select or type party name..." required>
-      <datalist id="toPartyList"></datalist>
-    </div>
-    <div class="row">
-      <label>Party Code</label>
-      <input type="text" id="toPartyCode" readonly placeholder="Auto-filled">
-    </div>
-
-    <div class="section-title">Brand</div>
-
-    <div class="row">
-      <label>Brand Name / ब्रांड</label>
-      <input list="brandList" id="brandName" placeholder="Select or type brand..." required>
-      <datalist id="brandList"></datalist>
-    </div>
-    <div class="row">
-      <label>Brand Code</label>
-      <input type="text" id="brandCode" readonly placeholder="Auto-filled">
-    </div>
-
-    <div class="section-title">Details</div>
-
-    <div class="row">
-      <label>Quantity / मात्रा</label>
-      <input type="number" id="qty" placeholder="Enter quantity" inputmode="numeric" required>
-    </div>
-    <div class="row">
-      <label>Vehicle No / गाड़ी नंबर</label>
-      <input type="text" id="vehicleNo" placeholder="E.G. DL01AB1234" style="text-transform:uppercase">
-    </div>
-    <div class="row">
-      <label>Remarks / टिप्पणी</label>
-      <textarea id="remarks" placeholder="Optional notes..."></textarea>
-    </div>
-
-    <div class="btn-wrap">
-      <button type="submit" id="submitBtn">Submit / जमा करें</button>
+            <div class="container-fluid p-4" id="main-content">
+                <div id="view-dashboard" class="app-view">
+                    <div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+                </div>
+                <div id="view-new-transaction" class="app-view d-none"></div>
+                <div id="view-live-stock" class="app-view d-none"></div>
+                <div id="view-daily-closing" class="app-view d-none"></div>
+                <div id="view-history" class="app-view d-none"></div>
+                <div id="view-rate-comparison" class="app-view d-none"></div>
+            </div>
+        </div>
     </div>
 
-  </form>
+    <div id="modals-container"></div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
 
-  <div class="msg-box" id="msg"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-</div>
+    <script>
+        let masterDataCache = null;
 
-<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const toggleBtn = document.getElementById("menu-toggle");
+            if (toggleBtn) {
+                toggleBtn.addEventListener("click", function(e) {
+                    e.preventDefault();
+                    document.getElementById("wrapper").classList.toggle("toggled");
+                });
+            }
+            setupNavigation();
+            loadDashboard();
+        });
 
-let partyData = [];
-let brandData = [];
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
 
-google.script.run.withSuccessHandler(function(data) {
-  partyData = data.parties;
-  brandData = data.brands;
+                    const title = this.innerText.trim();
+                    document.getElementById('page-title').innerText = title;
 
-  const fromList  = document.getElementById("fromPartyList");
-  const toList    = document.getElementById("toPartyList");
-  const brandList = document.getElementById("brandList");
+                    const targetId = this.getAttribute('data-target');
+                    document.querySelectorAll('.app-view').forEach(v => v.classList.add('d-none'));
+                    document.getElementById(targetId).classList.remove('d-none');
 
-  partyData.forEach(p => {
-    let o1 = document.createElement("option"); o1.value = p.name; fromList.appendChild(o1);
-    let o2 = document.createElement("option"); o2.value = p.name; toList.appendChild(o2);
-  });
-  brandData.forEach(b => {
-    let o = document.createElement("option"); o.value = b.name; brandList.appendChild(o);
-  });
+                    if (targetId === 'view-dashboard') loadDashboard();
+                    if (targetId === 'view-new-transaction') initNewTransactionView();
+                    if (targetId === 'view-live-stock') loadLiveStock();
+                    if (targetId === 'view-daily-closing') initDailyClosingView();
+                    if (targetId === 'view-history') loadTransactionHistory();
+                    if (targetId === 'view-rate-comparison') loadRateComparison();
 
-}).getMasterData();
+                    if (window.innerWidth <= 768) {
+                        document.getElementById("wrapper").classList.remove("toggled");
+                    }
+                });
+            });
+        }
 
+        function showGlobalLoading() {
+            document.getElementById('global-loading').classList.remove('d-none');
+        }
 
-function matchParty(val) {
-  let f = partyData.find(p => p.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
-}
+        function hideGlobalLoading() {
+            document.getElementById('global-loading').classList.add('d-none');
+        }
 
-function matchBrand(val) {
-  let f = brandData.find(b => b.name.trim().toLowerCase() === val.trim().toLowerCase());
-  return f ? f.code : "";
-}
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toastId = 'toast-' + Date.now();
+            const bgClass = type === 'success' ? 'text-bg-success' : 'text-bg-danger';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
 
-document.getElementById("fromParty").addEventListener("input", function() {
-  document.getElementById("fromPartyCode").value = matchParty(this.value);
-});
+            const html = `
+                <div id="${toastId}" class="toast align-items-center ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">
+                            <i class="fas ${icon} me-2"></i> ${escapeHTML(message)}
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
 
-document.getElementById("toParty").addEventListener("input", function() {
-  document.getElementById("toPartyCode").value = matchParty(this.value);
-});
+            toastContainer.insertAdjacentHTML('beforeend', html);
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+            toast.show();
 
-document.getElementById("brandName").addEventListener("input", function() {
-  document.getElementById("brandCode").value = matchBrand(this.value);
-});
+            toastEl.addEventListener('hidden.bs.toast', function () {
+                toastEl.remove();
+            });
+        }
 
-document.getElementById("vehicleNo").addEventListener("input", function() {
-  let pos = this.selectionStart;
-  this.value = this.value.toUpperCase();
-  this.setSelectionRange(pos, pos);
-});
+        function escapeHTML(str) {
+            if (!str) return "";
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
 
-document.getElementById("myForm").addEventListener("submit", function(e) {
-  e.preventDefault();
+        // Returns true if a given sub-category should show the Color/Size fields
+        function isStrapSubCategory(subCat) {
+            if (!masterDataCache || !masterDataCache.strapSubCategories) return false;
+            return masterDataCache.strapSubCategories.indexOf(subCat) !== -1;
+        }
 
-  const btn    = document.getElementById("submitBtn");
-  const msgDiv = document.getElementById("msg");
+        // Converts a Google Drive "share" link (e.g. .../file/d/FILE_ID/view?usp=sharing)
+        // into a direct-embeddable thumbnail URL that works inside an <img> tag.
+        // Falls back to returning the link unchanged if it isn't a recognizable Drive link.
+        function getPhotoUrl(link) {
+            if (!link) return '';
+            const trimmed = String(link).trim();
+            const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                          trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+                          trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w400`;
+            }
+            return trimmed;
+        }
 
-  btn.disabled = true;
-  btn.textContent = "Submitting...";
-  msgDiv.style.display = "none";
+        function fetchMasterData(callback) {
+            if (masterDataCache) {
+                if (callback) callback(masterDataCache);
+                return;
+            }
+            showGlobalLoading();
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    masterDataCache = data;
+                    hideGlobalLoading();
+                    if (callback) callback(data);
+                })
+                .withFailureHandler(function(err) {
+                    hideGlobalLoading();
+                    showToast(err.message, 'error');
+                })
+                .getMasterData();
+        }
 
-  let obj = {
-    fromParty    : document.getElementById("fromParty").value,
-    fromPartyCode: document.getElementById("fromPartyCode").value,
-    toParty      : document.getElementById("toParty").value,
-    toPartyCode  : document.getElementById("toPartyCode").value,
-    qty          : document.getElementById("qty").value,
-    brandName    : document.getElementById("brandName").value,
-    brandCode    : document.getElementById("brandCode").value,
-    vehicleNo    : document.getElementById("vehicleNo").value,
-    remarks      : document.getElementById("remarks").value
-  };
+        function initNewTransactionView() {
+            const view = document.getElementById('view-new-transaction');
+            view.innerHTML = `
+                <div class="row mb-3">
+                    <div class="col-md-3 mb-2">
+                        <label class="form-label fw-bold">Date <span class="required-asterisk">*</span></label>
+                        <input type="date" class="form-control" id="txn-date" required>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label fw-bold">Submitted By (Name) <span class="required-asterisk">*</span></label>
+                        <input type="text" class="form-control" id="txn-name" placeholder="Enter your name" required>
+                    </div>
+                </div>
 
-  google.script.run
-    .withSuccessHandler(function(res) {
-      const ok = res === "Success";
-      msgDiv.textContent   = ok ? "✅ Entry submitted successfully!" : "⚠️ " + res;
-      msgDiv.className     = "msg-box " + (ok ? "msg-success" : "msg-error");
-      msgDiv.style.display = "block";
-      if (ok) {
-        document.getElementById("myForm").reset();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-      btn.disabled = false;
-      btn.textContent = "Submit / जमा करें";
-    })
-    .saveData(obj);
-});
+                <div id="txn-rows-container"></div>
 
-</script>
+                <div class="mb-4 mt-2">
+                    <button type="button" class="btn btn-outline-primary" id="btn-add-row">
+                        <i class="fas fa-plus me-1"></i> Add More
+                    </button>
+                </div>
+
+                <div class="border-top pt-3 text-end">
+                    <button type="button" class="btn btn-success px-4 fw-bold" id="btn-submit-txn">
+                        <i class="fas fa-check-circle me-1"></i> SUBMIT TRANSACTION
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('txn-date').valueAsDate = new Date();
+            document.getElementById('btn-add-row').addEventListener('click', addTransactionRow);
+            document.getElementById('btn-submit-txn').addEventListener('click', validateAndConfirmSubmission);
+
+            fetchMasterData(function() {
+                addTransactionRow();
+            });
+        }
+
+        function addTransactionRow() {
+            if (!masterDataCache) return;
+
+            const container = document.getElementById('txn-rows-container');
+            const rowId = 'row-' + Date.now() + Math.floor(Math.random() * 1000);
+
+            let categoryOptions = '<option value="">Select Category...</option>';
+            masterDataCache.categories.forEach(cat => {
+                categoryOptions += `<option value="${escapeHTML(cat)}">${escapeHTML(cat)}</option>`;
+            });
+
+            const html = `
+                <div class="transaction-row p-3 mb-3 bg-white border rounded shadow-sm position-relative" id="${rowId}">
+                    <button type="button" class="btn btn-sm btn-outline-danger position-absolute top-0 end-0 m-2" onclick="removeTransactionRow('${rowId}')" title="Remove Row">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <div class="row mt-2 align-items-end">
+                        <div class="col-md-1 mb-2 text-center">
+                            <label class="form-label small text-secondary d-block">Photo</label>
+                            <div class="row-photo-box">
+                                <i class="fas fa-image"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-1 mb-2">
+                            <label class="form-label small text-secondary">Type <span class="required-asterisk">*</span></label>
+                            <select class="form-select row-type" onchange="onTypeChange('${rowId}')" required>
+                                <option value="IN">IN</option>
+                                <option value="OUT">OUT</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label small text-secondary">Category <span class="required-asterisk">*</span></label>
+                            <select class="form-select row-category" onchange="onCategoryChange('${rowId}')" required>
+                                ${categoryOptions}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2 row-subcat-wrapper">
+                            <label class="form-label small text-secondary">Sub Category</label>
+                            <select class="form-select row-subcategory" onchange="onSubCategoryChange('${rowId}')" disabled>
+                                <option value="">Select Category First</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-secondary">Item Name <span class="required-asterisk">*</span></label>
+                            <select class="form-select row-item" onchange="onItemChange('${rowId}')" disabled required>
+                                <option value="">Select Category First</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 mb-2">
+                            <label class="form-label small text-secondary">UOM</label>
+                            <input type="text" class="form-control bg-light row-uom" readonly>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label small text-secondary">Available</label>
+                            <input type="text" class="form-control bg-light row-available text-end" readonly>
+                        </div>
+                    </div>
+                    <div class="row row-color-size d-none">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-secondary">Color <span class="required-asterisk">*</span></label>
+                            <select class="form-select row-color" onchange="onColorChange('${rowId}')">
+                                <option value="">Select Color...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-secondary">Size <span class="required-asterisk">*</span></label>
+                            <select class="form-select row-size" onchange="onSizeChange('${rowId}')" disabled>
+                                <option value="">Select Color First</option>
+                            </select>
+                        </div>
+                    </div>
+                    <input type="hidden" class="row-rmcode" value="">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label small text-secondary">Quantity <span class="required-asterisk">*</span></label>
+                            <input type="number" class="form-control row-qty" min="0.01" step="0.01" required>
+                        </div>
+                        <div class="col-md-3 mb-2 row-rate-wrapper">
+                            <label class="form-label small text-secondary">Rate (Rs) <span class="required-asterisk">*</span></label>
+                            <input type="number" class="form-control row-rate" min="0" step="0.01" required>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label small text-secondary">Remarks</label>
+                            <input type="text" class="form-control row-remarks" placeholder="Optional notes">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', html);
+            updateRemoveButtons();
+        }
+
+        function removeTransactionRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+                updateRemoveButtons();
+            }
+        }
+
+        function updateRemoveButtons() {
+            const rows = document.querySelectorAll('.transaction-row');
+            const buttons = document.querySelectorAll('.transaction-row .btn-outline-danger');
+            if (rows.length <= 1) {
+                buttons.forEach(btn => btn.classList.add('d-none'));
+            } else {
+                buttons.forEach(btn => btn.classList.remove('d-none'));
+            }
+        }
+
+        function onTypeChange(rowId) {
+            const row = document.getElementById(rowId);
+            const type = row.querySelector('.row-type').value;
+            const rateWrapper = row.querySelector('.row-rate-wrapper');
+            const rateInput = row.querySelector('.row-rate');
+            const remarksWrapper = row.querySelector('.row-remarks').parentElement;
+
+            if (type === 'OUT') {
+                rateWrapper.classList.add('d-none');
+                rateInput.required = false;
+                remarksWrapper.classList.remove('col-md-6');
+                remarksWrapper.classList.add('col-md-9');
+            } else {
+                rateWrapper.classList.remove('d-none');
+                rateInput.required = true;
+                remarksWrapper.classList.remove('col-md-9');
+                remarksWrapper.classList.add('col-md-6');
+            }
+        }
+
+        function resetDownstreamFields(row) {
+            const itemSelect = row.querySelector('.row-item');
+            const uomInput = row.querySelector('.row-uom');
+            const availableInput = row.querySelector('.row-available');
+            const colorSelect = row.querySelector('.row-color');
+            const sizeSelect = row.querySelector('.row-size');
+            const colorSizeWrapper = row.querySelector('.row-color-size');
+            const photoBox = row.querySelector('.row-photo-box');
+            const rmcodeInput = row.querySelector('.row-rmcode');
+
+            itemSelect.innerHTML = '<option value="">Select Item...</option>';
+            itemSelect.removeAttribute('data-codes');
+            row.removeAttribute('data-item-matches');
+            uomInput.value = '';
+            availableInput.value = '';
+            colorSelect.innerHTML = '<option value="">Select Color...</option>';
+            sizeSelect.innerHTML = '<option value="">Select Color First</option>';
+            sizeSelect.disabled = true;
+            colorSizeWrapper.classList.add('d-none');
+            photoBox.innerHTML = '<i class="fas fa-image"></i>';
+            rmcodeInput.value = '';
+        }
+
+        function onCategoryChange(rowId) {
+            const row = document.getElementById(rowId);
+            const categorySelect = row.querySelector('.row-category');
+            const subcatSelect = row.querySelector('.row-subcategory');
+            const itemSelect = row.querySelector('.row-item');
+
+            const selectedCat = categorySelect.value;
+
+            resetDownstreamFields(row);
+
+            if (!selectedCat) {
+                subcatSelect.innerHTML = '<option value="">Select Category First</option>';
+                subcatSelect.disabled = true;
+                itemSelect.innerHTML = '<option value="">Select Category First</option>';
+                itemSelect.disabled = true;
+                return;
+            }
+
+            const subCats = (masterDataCache.subCategoriesByCategory && masterDataCache.subCategoriesByCategory[selectedCat]) || [];
+
+            if (subCats.length > 0) {
+                // This category has sub-categories — always shown, require selection before item
+                subcatSelect.innerHTML = '<option value="">Select Sub Category...</option>';
+                subCats.forEach(sc => {
+                    subcatSelect.innerHTML += `<option value="${escapeHTML(sc)}">${escapeHTML(sc)}</option>`;
+                });
+                subcatSelect.disabled = false;
+
+                itemSelect.innerHTML = '<option value="">Select Sub Category First</option>';
+                itemSelect.disabled = true;
+            } else {
+                // No sub-categories defined for this category — show as N/A, populate items directly
+                subcatSelect.innerHTML = '<option value="">N/A</option>';
+                subcatSelect.disabled = true;
+
+                populateItemSelect(itemSelect, masterDataCache.itemsByCategory[selectedCat] || []);
+            }
+        }
+
+        function onSubCategoryChange(rowId) {
+            const row = document.getElementById(rowId);
+            const categorySelect = row.querySelector('.row-category');
+            const subcatSelect = row.querySelector('.row-subcategory');
+            const itemSelect = row.querySelector('.row-item');
+
+            const selectedCat = categorySelect.value;
+            const selectedSubCat = subcatSelect.value;
+
+            const uomInput = row.querySelector('.row-uom');
+            const availableInput = row.querySelector('.row-available');
+            const colorSelect = row.querySelector('.row-color');
+            const sizeSelect = row.querySelector('.row-size');
+            const colorSizeWrapper = row.querySelector('.row-color-size');
+            const photoBox = row.querySelector('.row-photo-box');
+            const rmcodeInput = row.querySelector('.row-rmcode');
+            uomInput.value = '';
+            availableInput.value = '';
+            colorSelect.innerHTML = '<option value="">Select Color...</option>';
+            sizeSelect.innerHTML = '<option value="">Select Color First</option>';
+            sizeSelect.disabled = true;
+            colorSizeWrapper.classList.add('d-none');
+            photoBox.innerHTML = '<i class="fas fa-image"></i>';
+            rmcodeInput.value = '';
+            row.removeAttribute('data-item-matches');
+
+            if (!selectedSubCat) {
+                itemSelect.innerHTML = '<option value="">Select Sub Category First</option>';
+                itemSelect.disabled = true;
+                return;
+            }
+
+            const key = selectedCat + '||' + selectedSubCat;
+            const subItems = (masterDataCache.itemsBySubCategory && masterDataCache.itemsBySubCategory[key]) || [];
+            populateItemSelect(itemSelect, subItems);
+        }
+
+        function populateItemSelect(itemSelect, rmCodeList) {
+            // Keep the raw code list on the element so onItemChange can find variants (color/size) later.
+            itemSelect.dataset.codes = JSON.stringify(rmCodeList);
+
+            // De-duplicate by item name (case-insensitive) so items with multiple
+            // Color/Size variants only appear once in the dropdown.
+            let seen = {};
+            let names = [];
+            rmCodeList.forEach(code => {
+                const item = masterDataCache.items[code];
+                if (!item) return;
+                const key = item.itemName.trim().toLowerCase();
+                if (!seen[key]) {
+                    seen[key] = true;
+                    names.push(item.itemName.trim());
+                }
+            });
+
+            itemSelect.innerHTML = '<option value="">Select Item...</option>';
+            names.forEach(name => {
+                itemSelect.innerHTML += `<option value="${escapeHTML(name)}">${escapeHTML(name)}</option>`;
+            });
+            itemSelect.disabled = false;
+        }
+
+        function updatePhotoBox(photoBox, item) {
+            if (item && item.photoLink) {
+                photoBox.innerHTML = `<img src="${escapeHTML(getPhotoUrl(item.photoLink))}" alt="photo" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-image-slash\\'></i>'">`;
+            } else {
+                photoBox.innerHTML = '<i class="fas fa-image"></i>';
+            }
+        }
+
+        function fetchAvailableStock(rmCode, rmcodeInput, availableInput) {
+            availableInput.value = 'Loading...';
+            google.script.run
+                .withSuccessHandler(function(stock) {
+                    if (rmcodeInput.value === rmCode) {
+                        availableInput.value = stock;
+                    }
+                })
+                .withFailureHandler(function(err) {
+                    availableInput.value = 'Error';
+                    showToast('Failed to fetch stock: ' + err.message, 'error');
+                })
+                .getCurrentStock(rmCode);
+        }
+
+        // Resolve final selection: sets the hidden RM Code, UOM, photo, and fetches available stock.
+        function resolveItemSelection(row, item) {
+            const uomInput = row.querySelector('.row-uom');
+            const availableInput = row.querySelector('.row-available');
+            const photoBox = row.querySelector('.row-photo-box');
+            const rmcodeInput = row.querySelector('.row-rmcode');
+
+            rmcodeInput.value = item.rmCode;
+            uomInput.value = item.uom;
+            updatePhotoBox(photoBox, item);
+            fetchAvailableStock(item.rmCode, rmcodeInput, availableInput);
+        }
+
+        function onItemChange(rowId) {
+            const row = document.getElementById(rowId);
+            const itemSelect = row.querySelector('.row-item');
+            const uomInput = row.querySelector('.row-uom');
+            const availableInput = row.querySelector('.row-available');
+            const colorSelect = row.querySelector('.row-color');
+            const sizeSelect = row.querySelector('.row-size');
+            const colorSizeWrapper = row.querySelector('.row-color-size');
+            const photoBox = row.querySelector('.row-photo-box');
+            const rmcodeInput = row.querySelector('.row-rmcode');
+
+            const selectedName = itemSelect.value;
+
+            // Reset downstream state first
+            uomInput.value = '';
+            availableInput.value = '';
+            rmcodeInput.value = '';
+            colorSelect.innerHTML = '<option value="">Select Color...</option>';
+            sizeSelect.innerHTML = '<option value="">Select Color First</option>';
+            sizeSelect.disabled = true;
+            colorSizeWrapper.classList.add('d-none');
+            photoBox.innerHTML = '<i class="fas fa-image"></i>';
+            row.removeAttribute('data-item-matches');
+
+            if (!selectedName) return;
+
+            const codes = JSON.parse(itemSelect.dataset.codes || '[]');
+            const matches = codes
+                .map(code => masterDataCache.items[code])
+                .filter(item => item && item.itemName.trim().toLowerCase() === selectedName.trim().toLowerCase());
+
+            if (matches.length === 0) return;
+
+            if (matches.length === 1 || !isStrapSubCategory(matches[0].subCategory)) {
+                // Only one variant, or this sub-category doesn't distinguish by color/size — resolve directly.
+                resolveItemSelection(row, matches[0]);
+                return;
+            }
+
+            // Multiple Color/Size variants exist for this item — let the user pick.
+            row.dataset.itemMatches = JSON.stringify(matches);
+
+            let seenColors = {};
+            let colors = [];
+            matches.forEach(m => {
+                const key = (m.color || '').trim().toLowerCase();
+                if (!seenColors[key]) {
+                    seenColors[key] = true;
+                    colors.push(m.color || '(No Color)');
+                }
+            });
+
+            colorSelect.innerHTML = '<option value="">Select Color...</option>';
+            colors.forEach(c => {
+                colorSelect.innerHTML += `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`;
+            });
+            colorSizeWrapper.classList.remove('d-none');
+        }
+
+        function onColorChange(rowId) {
+            const row = document.getElementById(rowId);
+            const colorSelect = row.querySelector('.row-color');
+            const sizeSelect = row.querySelector('.row-size');
+            const uomInput = row.querySelector('.row-uom');
+            const availableInput = row.querySelector('.row-available');
+            const photoBox = row.querySelector('.row-photo-box');
+            const rmcodeInput = row.querySelector('.row-rmcode');
+
+            uomInput.value = '';
+            availableInput.value = '';
+            rmcodeInput.value = '';
+            photoBox.innerHTML = '<i class="fas fa-image"></i>';
+
+            const selectedColor = colorSelect.value;
+            const matches = JSON.parse(row.dataset.itemMatches || '[]');
+
+            if (!selectedColor) {
+                sizeSelect.innerHTML = '<option value="">Select Color First</option>';
+                sizeSelect.disabled = true;
+                return;
+            }
+
+            const colorMatches = matches.filter(m => (m.color || '(No Color)').trim().toLowerCase() === selectedColor.trim().toLowerCase());
+
+            if (colorMatches.length === 1) {
+                // Only one size available for this color — resolve directly, no need to pick a size.
+                sizeSelect.innerHTML = `<option value="${escapeHTML(colorMatches[0].size || '')}">${escapeHTML(colorMatches[0].size || '(No Size)')}</option>`;
+                sizeSelect.disabled = true;
+                resolveItemSelection(row, colorMatches[0]);
+                return;
+            }
+
+            let seenSizes = {};
+            let sizes = [];
+            colorMatches.forEach(m => {
+                const key = (m.size || '').trim().toLowerCase();
+                if (!seenSizes[key]) {
+                    seenSizes[key] = true;
+                    sizes.push(m.size || '(No Size)');
+                }
+            });
+
+            sizeSelect.innerHTML = '<option value="">Select Size...</option>';
+            sizes.forEach(s => {
+                sizeSelect.innerHTML += `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`;
+            });
+            sizeSelect.disabled = false;
+        }
+
+        function onSizeChange(rowId) {
+            const row = document.getElementById(rowId);
+            const colorSelect = row.querySelector('.row-color');
+            const sizeSelect = row.querySelector('.row-size');
+
+            const selectedColor = colorSelect.value;
+            const selectedSize = sizeSelect.value;
+            const matches = JSON.parse(row.dataset.itemMatches || '[]');
+
+            if (!selectedSize) return;
+
+            const finalMatch = matches.find(m =>
+                (m.color || '(No Color)').trim().toLowerCase() === selectedColor.trim().toLowerCase() &&
+                (m.size || '(No Size)').trim().toLowerCase() === selectedSize.trim().toLowerCase()
+            );
+
+            if (finalMatch) {
+                resolveItemSelection(row, finalMatch);
+            }
+        }
+
+        function validateAndConfirmSubmission() {
+            const dateStr = document.getElementById('txn-date').value;
+            const nameStr = document.getElementById('txn-name').value.trim();
+
+            if (!dateStr) return showToast('Please select a Date.', 'error');
+            if (!nameStr) return showToast('Please enter Submitted By (Name).', 'error');
+
+            const rows = document.querySelectorAll('.transaction-row');
+            if (rows.length === 0) return showToast('Please add at least one transaction.', 'error');
+
+            let payloadRows = [];
+            let runningBatchStock = {};
+            let isValid = true;
+
+            rows.forEach(row => {
+                const type = row.querySelector('.row-type').value;
+                const category = row.querySelector('.row-category').value;
+                const rmCode = row.querySelector('.row-rmcode').value;
+                const qtyStr = row.querySelector('.row-qty').value;
+                const remarks = row.querySelector('.row-remarks').value;
+                const availableStr = row.querySelector('.row-available').value;
+
+                if (!category || !rmCode) {
+                    showToast('Please complete Item / Color / Size selection on all rows.', 'error');
+                    isValid = false;
+                    return;
+                }
+
+                const qty = parseFloat(qtyStr);
+                if (isNaN(qty) || qty <= 0) {
+                    showToast('Quantity must be greater than 0 on all rows.', 'error');
+                    isValid = false;
+                    return;
+                }
+
+                if (availableStr === 'Loading...' || availableStr === 'Error') {
+                    showToast('Please wait for stock validation to finish.', 'error');
+                    isValid = false;
+                    return;
+                }
+
+                const availableStock = parseFloat(availableStr) || 0;
+                if (runningBatchStock[rmCode] === undefined) {
+                    runningBatchStock[rmCode] = availableStock;
+                }
+
+                if (type === 'OUT') {
+                    if (qty > runningBatchStock[rmCode]) {
+                        const itemName = row.querySelector('.row-item').options[row.querySelector('.row-item').selectedIndex].text;
+                        showToast(`Insufficient stock for ${itemName}. Available: ${runningBatchStock[rmCode].toFixed(2)}`, 'error');
+                        isValid = false;
+                        return;
+                    }
+                    runningBatchStock[rmCode] -= qty;
+                } else {
+                    runningBatchStock[rmCode] += qty;
+                }
+
+                payloadRows.push({
+                    rmCode: rmCode,
+                    type: type,
+                    qty: qty,
+                    rate: type === 'IN' ? parseFloat(row.querySelector('.row-rate').value) || 0 : 0,
+                    remarks: remarks
+                });
+            });
+
+            if (!isValid) return;
+
+            const modalHtml = `
+                <div class="modal fade" id="confirmTxnModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">Confirm Transaction</h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body text-center p-4">
+                                <i class="fas fa-question-circle text-primary mb-3" style="font-size: 3rem;"></i>
+                                <p class="fs-5 mb-0">Are you sure you want to submit <strong>${payloadRows.length}</strong> transaction(s)?</p>
+                            </div>
+                            <div class="modal-footer justify-content-center">
+                                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary px-4" id="btn-final-submit">Confirm Submit</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modals-container').innerHTML = modalHtml;
+            const modal = new bootstrap.Modal(document.getElementById('confirmTxnModal'));
+
+            document.getElementById('btn-final-submit').addEventListener('click', function() {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+
+                const closeBtn = document.querySelector('#confirmTxnModal .btn-close');
+                const cancelBtn = document.querySelector('#confirmTxnModal .btn-outline-secondary');
+                closeBtn.disabled = true;
+                cancelBtn.disabled = true;
+
+                const payload = {
+                    date: dateStr,
+                    name: nameStr,
+                    rows: payloadRows
+                };
+
+                google.script.run
+                    .withSuccessHandler(function(response) {
+                        modal.hide();
+                        showToast(response.message, 'success');
+                        document.getElementById('txn-rows-container').innerHTML = '';
+                        addTransactionRow();
+                    })
+                    .withFailureHandler(function(err) {
+                        const btn = document.getElementById('btn-final-submit');
+                        btn.disabled = false;
+                        btn.innerHTML = 'Confirm Submit';
+                        closeBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        showToast(err.message, 'error');
+                    })
+                    .submitTransactions(payload);
+            });
+
+            modal.show();
+        }
+
+        function loadDashboard() {
+            const view = document.getElementById('view-dashboard');
+            view.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    renderDashboard(data, view);
+                })
+                .withFailureHandler(function(err) {
+                    view.innerHTML = `<div class="alert alert-danger">Failed to load dashboard: ${escapeHTML(err.message)}</div>`;
+                })
+                .getDashboardData();
+        }
+
+        function renderDashboard(data, view) {
+            view.innerHTML = `
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="card metric-card h-100 border-primary border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">TOTAL RM ITEMS</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.totalItems}</h3>
+                                    </div>
+                                    <div class="metric-icon text-primary"><i class="fas fa-boxes"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card metric-card h-100 border-success border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">TOTAL CURRENT STOCK</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.totalCurrentStock}</h3>
+                                    </div>
+                                    <div class="metric-icon text-success"><i class="fas fa-layer-group"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card metric-card h-100 border-warning border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">LOW STOCK ITEMS</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.lowStockCount}</h3>
+                                    </div>
+                                    <div class="metric-icon text-warning"><i class="fas fa-exclamation-triangle"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card metric-card h-100 border-danger border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">OUT OF STOCK</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.outOfStockCount}</h3>
+                                    </div>
+                                    <div class="metric-icon text-danger"><i class="fas fa-times-circle"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card metric-card h-100 border-info border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">TODAY'S IN (RECEIVED)</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.todayIn}</h3>
+                                    </div>
+                                    <div class="metric-icon text-info"><i class="fas fa-arrow-down"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card metric-card h-100 border-secondary border-start border-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="text-muted fw-bold mb-1">TODAY'S OUT (ISSUED)</h6>
+                                        <h3 class="mb-0 fw-bold text-dark">${data.todayOut}</h3>
+                                    </div>
+                                    <div class="metric-icon text-secondary"><i class="fas fa-arrow-up"></i></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadLiveStock() {
+            const view = document.getElementById('view-live-stock');
+            view.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    renderStockTable(data, view, 'Live Current Stock');
+                })
+                .withFailureHandler(function(err) {
+                    view.innerHTML = `<div class="alert alert-danger">Failed to load live stock: ${escapeHTML(err.message)}</div>`;
+                })
+                .getLiveStock();
+        }
+
+        function initDailyClosingView() {
+            const view = document.getElementById('view-daily-closing');
+            view.innerHTML = `
+                <div class="row mb-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold">Select Date</label>
+                        <input type="date" class="form-control" id="closing-date" required>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary w-100" id="btn-view-closing">
+                            <i class="fas fa-search me-1"></i> VIEW CLOSING
+                        </button>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <button class="btn btn-outline-secondary" id="btn-export-closing" style="display:none;">
+                            <i class="fas fa-file-csv me-1"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div id="daily-closing-content">
+                    <div class="text-center text-muted py-5 border rounded bg-white">
+                        <i class="fas fa-calendar-alt fa-3x mb-3 text-light"></i>
+                        <h5>Select a date to view historical closing stock</h5>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('closing-date').valueAsDate = new Date();
+
+            document.getElementById('btn-view-closing').addEventListener('click', function() {
+                const dateStr = document.getElementById('closing-date').value;
+                if (!dateStr) return showToast("Please select a date", "error");
+
+                const content = document.getElementById('daily-closing-content');
+                content.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+
+                google.script.run
+                    .withSuccessHandler(function(data) {
+                        renderStockTable(data, content, `Closing Stock as of ${dateStr}`, 'btn-export-closing');
+                    })
+                    .withFailureHandler(function(err) {
+                        content.innerHTML = `<div class="alert alert-danger">Failed to load closing stock: ${escapeHTML(err.message)}</div>`;
+                    })
+                    .getDailyClosing(dateStr);
+            });
+        }
+
+        function renderStockTable(data, container, title, exportBtnId = null) {
+            const categories = [...new Set(data.map(item => item.category))].sort();
+            let catOptions = '<option value="">All Categories</option>';
+            categories.forEach(c => {
+                catOptions += `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`;
+            });
+
+            container.innerHTML = `
+                <div class="table-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+                        <h5 class="mb-0 text-secondary"><i class="fas fa-box-open me-2"></i>${escapeHTML(title)}</h5>
+                        <div class="d-flex gap-2 mt-2 mt-md-0">
+                            <select class="form-select form-select-sm" id="filter-status" style="width: 150px;" onchange="filterStockTable()">
+                                <option value="">All Statuses</option>
+                                <option value="OK">OK</option>
+                                <option value="LOW STOCK">LOW STOCK</option>
+                                <option value="OUT OF STOCK">OUT OF STOCK</option>
+                            </select>
+                            <select class="form-select form-select-sm" id="filter-category" style="width: 180px;" onchange="filterStockTable()">
+                                ${catOptions}
+                            </select>
+                            <input type="text" class="form-control form-control-sm" id="filter-search" placeholder="Search item..." style="width: 200px;" onkeyup="filterStockTable()">
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle" id="stock-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Photo</th>
+                                    <th>RM Code</th>
+                                    <th>Category</th>
+                                    <th>Sub Category</th>
+                                    <th>Item Name</th>
+                                    <th>Color</th>
+                                    <th>Size</th>
+                                    <th>UOM</th>
+                                    <th class="text-end">Opening</th>
+                                    <th class="text-end text-success">Total IN</th>
+                                    <th class="text-end text-danger">Total OUT</th>
+                                    <th class="text-end fw-bold">Closing</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.map(row => {
+                                    let badgeClass = 'badge-ok';
+                                    if (row.status === 'LOW STOCK') badgeClass = 'badge-low';
+                                    if (row.status === 'OUT OF STOCK') badgeClass = 'badge-out';
+
+                                    const photoCell = row.photoLink
+                                        ? `<img src="${escapeHTML(getPhotoUrl(row.photoLink))}" class="table-photo-thumb" alt="photo" onerror="this.outerHTML='<div class=\\'table-photo-placeholder\\'><i class=\\'fas fa-image\\'></i></div>'">`
+                                        : `<div class="table-photo-placeholder"><i class="fas fa-image"></i></div>`;
+
+                                    return `
+                                        <tr class="stock-row"
+                                            data-cat="${escapeHTML(row.category)}"
+                                            data-status="${escapeHTML(row.status)}"
+                                            data-search="${escapeHTML(row.rmCode + ' ' + row.itemName).toLowerCase()}">
+                                            <td>${photoCell}</td>
+                                            <td>${escapeHTML(row.rmCode)}</td>
+                                            <td>${escapeHTML(row.category)}</td>
+                                            <td>${escapeHTML(row.subCategory) || '-'}</td>
+                                            <td class="fw-bold">${escapeHTML(row.itemName)}</td>
+                                            <td>${escapeHTML(row.color) || '-'}</td>
+                                            <td>${escapeHTML(row.size) || '-'}</td>
+                                            <td>${escapeHTML(row.uom)}</td>
+                                            <td class="text-end">${row.openingStock}</td>
+                                            <td class="text-end">${row.totalIn}</td>
+                                            <td class="text-end">${row.totalOut}</td>
+                                            <td class="text-end fw-bold bg-light">${row.closingStock}</td>
+                                            <td><span class="badge ${badgeClass}">${escapeHTML(row.status)}</span></td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                                ${data.length === 0 ? '<tr><td colspan="13" class="text-center py-4">No data found</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            if (exportBtnId) {
+                const btn = document.getElementById(exportBtnId);
+                if (btn) {
+                    btn.style.display = 'inline-block';
+                    const newBtn = btn.cloneNode(true);
+                    btn.parentNode.replaceChild(newBtn, btn);
+                    newBtn.addEventListener('click', function() {
+                        exportTableToCSV('stock-table', `Closing_Stock_${title.replace(/[^a-z0-9]/gi, '_')}.csv`);
+                    });
+                }
+            }
+        }
+
+        function filterStockTable() {
+            const catFilter = document.getElementById('filter-category').value;
+            const statusFilter = document.getElementById('filter-status').value;
+            const searchFilter = document.getElementById('filter-search').value.toLowerCase();
+
+            document.querySelectorAll('.stock-row').forEach(row => {
+                const cat = row.getAttribute('data-cat');
+                const status = row.getAttribute('data-status');
+                const search = row.getAttribute('data-search');
+
+                let show = true;
+                if (catFilter && cat !== catFilter) show = false;
+                if (statusFilter && status !== statusFilter) show = false;
+                if (searchFilter && !search.includes(searchFilter)) show = false;
+
+                row.style.display = show ? '' : 'none';
+            });
+        }
+
+        function exportTableToCSV(tableId, filename) {
+            const table = document.getElementById(tableId);
+            let csv = [];
+
+            let headers = [];
+            table.querySelectorAll('thead th').forEach(th => headers.push('"' + th.innerText.replace(/"/g, '""') + '"'));
+            csv.push(headers.join(','));
+
+            table.querySelectorAll('tbody tr.stock-row').forEach(tr => {
+                if (tr.style.display !== 'none') {
+                    let row = [];
+                    tr.querySelectorAll('td').forEach(td => row.push('"' + td.innerText.replace(/"/g, '""') + '"'));
+                    csv.push(row.join(','));
+                }
+            });
+
+            const csvFile = new Blob([csv.join('\n')], { type: 'text/csv' });
+            const downloadLink = document.createElement("a");
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        let rateChartInstance = null;
+
+        function loadRateComparison() {
+            const view = document.getElementById('view-rate-comparison');
+            fetchMasterData(function() {
+                let itemsOptions = '<option value="">Select Item...</option>';
+                Object.values(masterDataCache.items).forEach(item => {
+                    itemsOptions += `<option value="${escapeHTML(item.rmCode)}">${escapeHTML(item.rmCode + ' - ' + item.itemName)}</option>`;
+                });
+
+                view.innerHTML = `
+                    <div class="row mb-4 align-items-end bg-white p-3 rounded shadow-sm">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label fw-bold small">Select Item to Compare Rates</label>
+                            <select class="form-select form-select-sm" id="rate-comp-item">
+                                ${itemsOptions}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <button class="btn btn-primary btn-sm w-100" id="btn-view-rate">
+                                <i class="fas fa-chart-line me-1"></i> View Trends
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 mb-4">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-secondary border-bottom pb-2 mb-3">Price Trend (Rs)</h5>
+                                    <canvas id="rateChart" style="min-height: 300px;"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-secondary border-bottom pb-2 mb-3">Rate History</h5>
+                                    <div id="rate-history-table">
+                                        <div class="text-center py-4 text-muted">Select an item to view history.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('btn-view-rate').addEventListener('click', function() {
+                    const rmCode = document.getElementById('rate-comp-item').value;
+                    if (!rmCode) return showToast('Please select an item first.', 'error');
+
+                    document.getElementById('rate-history-table').innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>';
+
+                    google.script.run
+                        .withSuccessHandler(function(rates) {
+                            renderRateComparison(rates);
+                        })
+                        .withFailureHandler(function(err) {
+                            document.getElementById('rate-history-table').innerHTML = `<div class="alert alert-danger p-2 small">${escapeHTML(err.message)}</div>`;
+                        })
+                        .getRateComparison(rmCode);
+                });
+            });
+        }
+
+        function renderRateComparison(rates) {
+            const tableContainer = document.getElementById('rate-history-table');
+            const ctx = document.getElementById('rateChart').getContext('2d');
+
+            if (!rates || rates.length === 0) {
+                tableContainer.innerHTML = '<div class="text-center py-4 text-muted">No rate history found for this item.</div>';
+                if (rateChartInstance) rateChartInstance.destroy();
+                return;
+            }
+
+            // Table
+            let tableHtml = `
+                <table class="table table-sm table-bordered table-striped small align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th class="text-end">Rate (Rs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            rates.forEach(r => {
+                tableHtml += `
+                    <tr>
+                        <td>${escapeHTML(r.dateStr)}</td>
+                        <td class="text-end fw-bold text-primary">${r.rate.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            tableHtml += `</tbody></table>`;
+            tableContainer.innerHTML = tableHtml;
+
+            // Chart
+            const labels = rates.map(r => r.dateStr);
+            const dataPts = rates.map(r => r.rate);
+
+            if (rateChartInstance) {
+                rateChartInstance.destroy();
+            }
+
+            rateChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Purchase Rate (Rs)',
+                        data: dataPts,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.1,
+                        pointBackgroundColor: '#0d6efd',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: { display: true, text: 'Rate (Rs)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Date' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadTransactionHistory() {
+            const view = document.getElementById('view-history');
+            fetchMasterData(function() {
+                let catOptions = '<option value="">All Categories</option>';
+                masterDataCache.categories.forEach(c => {
+                    catOptions += `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`;
+                });
+
+                view.innerHTML = `
+                    <div class="row mb-3 align-items-end bg-white p-3 rounded shadow-sm">
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label fw-bold small">From Date</label>
+                            <input type="date" class="form-control form-control-sm" id="hist-from">
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label fw-bold small">To Date</label>
+                            <input type="date" class="form-control form-control-sm" id="hist-to">
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label fw-bold small">Type</label>
+                            <select class="form-select form-select-sm" id="hist-type">
+                                <option value="">All Types</option>
+                                <option value="IN">IN</option>
+                                <option value="OUT">OUT</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label fw-bold small">Category</label>
+                            <select class="form-select form-select-sm" id="hist-cat">
+                                ${catOptions}
+                            </select>
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <label class="form-label fw-bold small">Search Name/Item</label>
+                            <input type="text" class="form-control form-control-sm" id="hist-search" placeholder="Search...">
+                        </div>
+                        <div class="col-md-2 mb-2">
+                            <button class="btn btn-primary btn-sm w-100" id="btn-filter-hist">
+                                <i class="fas fa-filter me-1"></i> Apply Filters
+                            </button>
+                        </div>
+                    </div>
+                    <div id="hist-content">
+                        <div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+                    </div>
+                `;
+
+                const today = new Date();
+                const lastWeek = new Date();
+                lastWeek.setDate(today.getDate() - 7);
+
+                document.getElementById('hist-from').valueAsDate = lastWeek;
+                document.getElementById('hist-to').valueAsDate = today;
+                document.getElementById('btn-filter-hist').addEventListener('click', fetchTransactionHistory);
+
+                fetchTransactionHistory();
+            });
+        }
+
+        function fetchTransactionHistory() {
+            const content = document.getElementById('hist-content');
+            content.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>';
+
+            const filters = {
+                fromDate: document.getElementById('hist-from').value,
+                toDate: document.getElementById('hist-to').value,
+                type: document.getElementById('hist-type').value,
+                category: document.getElementById('hist-cat').value
+            };
+            const searchInput = document.getElementById('hist-search').value.toLowerCase();
+
+            google.script.run
+                .withSuccessHandler(function(data) {
+                    if (searchInput) {
+                        data = data.filter(r =>
+                            r.name.toLowerCase().includes(searchInput) ||
+                            r.itemName.toLowerCase().includes(searchInput) ||
+                            r.rmCode.toLowerCase().includes(searchInput)
+                        );
+                    }
+                    renderTransactionHistoryTable(data, content);
+                })
+                .withFailureHandler(function(err) {
+                    content.innerHTML = `<div class="alert alert-danger">Failed to load history: ${escapeHTML(err.message)}</div>`;
+                })
+                .getTransactionsHistory(filters);
+        }
+
+        function renderTransactionHistoryTable(data, container) {
+            let currentPage = 1;
+            const rowsPerPage = 20;
+            const totalPages = Math.ceil(data.length / rowsPerPage) || 1;
+
+            function renderPage(page) {
+                currentPage = page;
+                const start = (page - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+                const pageData = data.slice(start, end);
+
+                let html = `
+                    <div class="table-container">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered table-sm align-middle" style="font-size: 0.9rem;">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Txn ID</th>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>RM Code</th>
+                                        <th>Item Name</th>
+                                        <th>Color</th>
+                                        <th>Size</th>
+                                        <th class="text-end">Qty</th>
+                                        <th>UOM</th>
+                                        <th class="text-end">Rate (Rs)</th>
+                                        <th>Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${pageData.map(row => {
+                                        const typeClass = row.type === 'IN' ? 'text-success fw-bold' : 'text-danger fw-bold';
+                                        return `
+                                            <tr>
+                                                <td>${escapeHTML(row.dateStr)}</td>
+                                                <td class="text-muted small">${escapeHTML(row.txnId)}</td>
+                                                <td>${escapeHTML(row.name)}</td>
+                                                <td class="${typeClass}">${escapeHTML(row.type)}</td>
+                                                <td>${escapeHTML(row.rmCode)}</td>
+                                                <td>${escapeHTML(row.itemName)}</td>
+                                                <td>${escapeHTML(row.color) || '-'}</td>
+                                                <td>${escapeHTML(row.size) || '-'}</td>
+                                                <td class="text-end fw-bold">${row.qty}</td>
+                                                <td>${escapeHTML(row.uom)}</td>
+                                                <td class="text-end">${row.rate ? row.rate.toFixed(2) : '-'}</td>
+                                                <td>${escapeHTML(row.remarks)}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                    ${data.length === 0 ? '<tr><td colspan="12" class="text-center py-4">No transactions found</td></tr>' : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                `;
+
+                if (totalPages > 1) {
+                    html += `
+                        <nav class="mt-3">
+                            <ul class="pagination justify-content-center mb-0">
+                                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" onclick="event.preventDefault(); renderHistoryPage(${currentPage - 1})">Previous</a>
+                                </li>
+                                <li class="page-item disabled"><span class="page-link">Page ${currentPage} of ${totalPages}</span></li>
+                                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" onclick="event.preventDefault(); renderHistoryPage(${currentPage + 1})">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    `;
+                }
+
+                html += `</div>`;
+                container.innerHTML = html;
+            }
+
+            window.renderHistoryPage = renderPage;
+            renderPage(1);
+        }
+    </script>
 </body>
 </html>
